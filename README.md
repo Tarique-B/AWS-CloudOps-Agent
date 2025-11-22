@@ -14,33 +14,47 @@ An AWS Assistant application with a FastAPI backend and Streamlit frontend. The 
 
 ## Quick Start
 
-### Option 1: Run Both Services Separately (Recommended for Development)
+### Option 1: Docker Compose (Recommended)
+
+**Prerequisites:**
+- Docker and Docker Compose installed
+- AWS credentials configured
+
+**Start both services:**
+```bash
+# Using AWS credentials from environment
+docker-compose up -d
+
+# Or with .env file
+cp .env.example .env
+# Edit .env with your AWS credentials
+docker-compose up -d
+```
+
+**Access the application:**
+- Frontend: http://localhost:8501
+- Backend API: http://localhost:8888
+
+**Stop services:**
+```bash
+docker-compose down
+```
+
+**View logs:**
+```bash
+docker-compose logs -f
+```
+
+### Option 2: Run Both Services Separately (Development)
 
 **Terminal 1 - Start API Server:**
 ```bash
 python agent.py
 ```
-Or:
-```bash
-uvicorn agent:app --host 0.0.0.0 --port 8000
-```
 
 **Terminal 2 - Start Streamlit App:**
 ```bash
 streamlit run app.py
-```
-
-### Option 2: Use Helper Script (Linux/Mac)
-
-```bash
-chmod +x run.sh
-./run.sh
-```
-
-### Option 3: Use Helper Script (Windows)
-
-```bash
-run.bat
 ```
 
 ## Configuration

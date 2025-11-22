@@ -1,7 +1,3 @@
-"""
-AWS Assistant Agent using Strands Agents framework
-Provides REST API endpoints for agent interactions
-"""
 import json
 import logging
 import os
@@ -13,9 +9,6 @@ from strands_tools import use_aws
 from strands.models.bedrock import BedrockModel
 from models import InvocationRequest, PingResponse
 
-# ============================================================================
-# Logging Configuration
-# ============================================================================
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL, logging.INFO),
@@ -24,22 +17,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ============================================================================
-# Configuration
-# ============================================================================
 BEDROCK_MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-sonnet-20240229-v1:0")
 logger.info(f"Using Bedrock Model ID: {BEDROCK_MODEL_ID}")
 
-# ============================================================================
-# Agent Creation
-# ============================================================================
 def create_aws_assistant_agent():
-    """
-    Create an AWS Assistant agent using Strands Agents framework
-    
-    Returns:
-        Agent: Configured Strands agent with AWS tools
-    """
     logger.info("Creating AWS Assistant agent")
     system_prompt = """You are an AWS Assistant. Your role is to help users interact with and manage AWS services.
 
@@ -65,9 +46,6 @@ Be helpful, professional, and focus on AWS-related tasks."""
         logger.error(f"Failed to create AWS Assistant agent: {str(e)}")
         raise
 
-# ============================================================================
-# FastAPI Application Setup
-# ============================================================================
 app = FastAPI(title="AWS Assistant API", version="1.0.0")
 
 # Enable CORS for Streamlit app
@@ -82,9 +60,6 @@ app.add_middleware(
 # Global agent instance
 agent = None
 
-# ============================================================================
-# Startup Event
-# ============================================================================
 @app.on_event("startup")
 async def startup_event():
     """Initialize agent on startup"""
@@ -96,15 +71,8 @@ async def startup_event():
     except Exception as e:
         logger.warning(f"Failed to initialize agent on startup: {e}")
 
-# ============================================================================
-# API Endpoints
-# ============================================================================
 @app.get("/ping")
 async def ping():
-    """
-    Ping endpoint to check agent health and status
-    Returns the health status, model ID, and initialization state
-    """
     global agent
     logger.debug("Ping endpoint called")
     agent_initialized = agent is not None
@@ -132,10 +100,6 @@ async def ping():
 
 @app.post("/invocations")
 async def invoke_agent(request: InvocationRequest):
-    """
-    Invoke the agent with a prompt
-    Supports both streaming and non-streaming responses
-    """
     global agent
     
     logger.info(f"Invocation request received: stream={request.stream}, prompt_length={len(request.prompt)}")
@@ -199,19 +163,7 @@ async def invoke_agent(request: InvocationRequest):
                 detail=f"Agent invocation failed: {str(e)}"
             )
 
-# ============================================================================
-# Helper Functions
-# ============================================================================
 def _extract_response_text(response):
-    """
-    Extract text content from agent response
-    
-    Args:
-        response: Agent response object
-        
-    Returns:
-        str: Extracted text content
-    """
     if isinstance(response, dict) and "content" in response:
         content = response["content"]
         if isinstance(content, list) and len(content) > 0:
@@ -225,9 +177,6 @@ def _extract_response_text(response):
     else:
         return str(response)
 
-# ============================================================================
-# Main Entry Point
-# ============================================================================
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8888))

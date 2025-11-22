@@ -1,6 +1,3 @@
-"""
-Streamlit Chat App for AWS Assistant using API endpoints
-"""
 import json
 import logging
 import os
@@ -8,9 +5,6 @@ import requests
 import streamlit as st
 from requests.exceptions import ConnectionError, Timeout
 
-# ============================================================================
-# Logging Configuration
-# ============================================================================
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL, logging.INFO),
@@ -19,22 +13,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ============================================================================
-# Configuration
-# ============================================================================
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8888")
 logger.info(f"Streamlit app initialized with API_BASE_URL: {API_BASE_URL}")
 
-# ============================================================================
-# API Client Functions
-# ============================================================================
 def get_agent_status():
-    """
-    Get agent status from API ping endpoint
-    
-    Returns:
-        dict: Status information with status, model_id, agent_initialized
-    """
     logger.debug("Fetching agent status from API")
     try:
         response = requests.get(f"{API_BASE_URL}/ping", timeout=5)
@@ -60,15 +42,6 @@ def get_agent_status():
 
 
 def stream_agent_response(prompt):
-    """
-    Stream agent response from API as a generator for real-time display.
-    
-    Args:
-        prompt: User's query
-        
-    Yields:
-        str: Text chunks as they are generated
-    """
     full_response = ""
     logger.info(f"Starting streaming request, prompt_length={len(prompt)}")
     
@@ -139,15 +112,6 @@ def stream_agent_response(prompt):
 
 
 def invoke_agent_non_streaming(prompt):
-    """
-    Invoke agent without streaming
-    
-    Args:
-        prompt: User's query
-        
-    Returns:
-        str: Agent response text
-    """
     logger.info(f"Starting non-streaming request, prompt_length={len(prompt)}")
     try:
         response = requests.post(
@@ -170,9 +134,6 @@ def invoke_agent_non_streaming(prompt):
         logger.error(f"Non-streaming request error: {str(e)}", exc_info=True)
         return error_msg
 
-# ============================================================================
-# Page Configuration
-# ============================================================================
 st.set_page_config(
     page_title="AWS Assistant",
     page_icon="☁️",
@@ -180,9 +141,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ============================================================================
-# Custom CSS
-# ============================================================================
 st.markdown("""
     <style>
     /* Main container styling */
@@ -265,18 +223,12 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ============================================================================
-# Header Section
-# ============================================================================
 st.markdown("<h1>☁️ AWS Assistant</h1>", unsafe_allow_html=True)
 st.markdown(
     '<p class="subtitle">Chat with your AWS Assistant powered by Strands Agents and AWS Bedrock</p>',
     unsafe_allow_html=True
 )
 
-# ============================================================================
-# Get Agent Status
-# ============================================================================
 status_info = get_agent_status()
 health_status = status_info.get("status", "unknown")
 model_id = status_info.get("model_id", "unknown")
@@ -286,9 +238,6 @@ agent_initialized = status_info.get("agent_initialized", False)
 status_color = "🟢" if health_status == "healthy" and agent_initialized else "🔴"
 status_text = "Healthy" if health_status == "healthy" and agent_initialized else "Unhealthy"
 
-# ============================================================================
-# Initialize Chat History
-# ============================================================================
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {
@@ -297,18 +246,12 @@ if "messages" not in st.session_state:
         }
     ]
 
-# ============================================================================
-# Display Chat Messages
-# ============================================================================
 chat_container = st.container()
 with chat_container:
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-# ============================================================================
-# User Input Handling
-# ============================================================================
 if prompt := st.chat_input("Ask about AWS services..."):
     # Add user message to chat history
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -354,9 +297,6 @@ if prompt := st.chat_input("Ask about AWS services..."):
     # Rerun to refresh the display
     st.rerun()
 
-# ============================================================================
-# Sidebar
-# ============================================================================
 with st.sidebar:
     st.markdown("### 🚀 About")
     st.markdown("---")
@@ -379,8 +319,6 @@ with st.sidebar:
       AWS's agent framework
     - **AWS Bedrock**  
       Language model capabilities
-    - **use_aws tool**  
-      AWS service access
     """)
     
     st.markdown("---")
@@ -389,18 +327,6 @@ with st.sidebar:
     - ✅ Interact with all AWS services
     - ✅ Natural language queries
     - ✅ Autonomous agent reasoning
-    - ✅ API-based architecture
-    """)
-    
-    st.markdown("---")
-    st.markdown("#### ⚙️ Configuration")
-    st.markdown(f"""
-    **API Endpoint:** `{API_BASE_URL}`
-    
-    **Note:** Make sure AWS credentials are configured via:
-    - AWS CLI
-    - Environment variables
-    - IAM roles
     """)
     
     st.markdown("---")
