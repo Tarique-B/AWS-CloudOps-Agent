@@ -1,4 +1,4 @@
-# AWS AI Assistant
+# AWS Assistant
 
 Powered by Strands Agent and AWS Bedrock.
 
