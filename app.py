@@ -355,6 +355,9 @@ if "messages" not in st.session_state:
         "content": "Hi there! I'm ready to help you manage your cloud infrastructure. What's on your mind today?"
     }]
 
+if "pending_prompt" not in st.session_state:
+    st.session_state.pending_prompt = None
+
 def process_user_input(input_text):
     st.session_state.messages.append({"role": "user", "content": input_text})
     
@@ -384,6 +387,12 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
+if st.session_state.pending_prompt:
+    prompt = st.session_state.pending_prompt
+    st.session_state.pending_prompt = None
+    process_user_input(prompt)
+    st.rerun()
+
 if prompt := st.chat_input("Ask me to deploy resources, check logs, or analyze costs..."):
     process_user_input(prompt)
     st.rerun()
@@ -400,13 +409,13 @@ with st.sidebar:
     with st.expander("⚡ Quick Start", expanded=True):
         st.markdown("Try one of these:")
         if st.button("List all S3 buckets"):
-            process_user_input("List all S3 buckets in my account")
+            st.session_state.pending_prompt = "List all S3 buckets in my account"
             st.rerun()
         if st.button("Check running EC2 instances"):
-            process_user_input("Show me all running EC2 instances")
+            st.session_state.pending_prompt = "Show me all running EC2 instances"
             st.rerun()
         if st.button("Analyze monthly costs"):
-            process_user_input("Analyze my AWS costs for the last month")
+            st.session_state.pending_prompt = "Analyze my AWS costs for the last month"
             st.rerun()
 
     with st.expander("🚀 Capabilities", expanded=False):
