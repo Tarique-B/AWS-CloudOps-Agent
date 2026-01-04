@@ -8,7 +8,7 @@ from typing import Optional
 class InvocationRequest(BaseModel):
     """Request model for agent invocations"""
     prompt: str
-    stream: Optional[bool] = False
+    stream: Optional[bool] = True
 
 
 class PingResponse(BaseModel):
