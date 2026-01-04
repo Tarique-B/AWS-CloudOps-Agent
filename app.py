@@ -4,6 +4,8 @@ import os
 import requests
 import streamlit as st
 from requests.exceptions import ConnectionError, Timeout
+import boto3
+import uuid
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
@@ -13,64 +15,121 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8888")
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8080")
+AGENTCORE_RUNTIME_ARN = os.getenv("AGENTCORE_RUNTIME_ARN")
+AGENT_RUNTIME = "Agentcore" if AGENTCORE_RUNTIME_ARN else "local"
+STRANDS_AGENT_VERSION = os.getenv("STRANDS_AGENT_VERSION", "v1.0.0")
+BEDROCK_MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "unknown")
 
 st.set_page_config(
-    page_title="AWS Assistant",
+    page_title="AWS CloudOps Assistant",
     page_icon="☁️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 def get_agent_status():
-    try:
-        response = requests.get(f"{API_BASE_URL}/ping", timeout=2)
-        if response.status_code == 200:
-            return response.json()
-        return {"status": "unhealthy", "model_id": "unknown", "agent_initialized": False}
-    except Exception:
-        return {"status": "unhealthy", "model_id": "unknown", "agent_initialized": False}
+    if AGENT_RUNTIME == "Agentcore":
+        try:
+            return {"status": "healthy", "model_id": "unknown", "agent_initialized": True}
+        except Exception:
+            return {"status": "unhealthy", "model_id": "unknown", "agent_initialized": False}
+    else:
+        try:
+            response = requests.get(f"{API_BASE_URL}/ping", timeout=2)
+            if response.status_code == 200:
+                return response.json()
+            return {"status": "unhealthy", "model_id": "unknown", "agent_initialized": False}
+        except Exception:
+            return {"status": "unhealthy", "model_id": "unknown", "agent_initialized": False}
 
 def stream_agent_response(prompt):
-    try:
-        response = requests.post(
-            f"{API_BASE_URL}/invocations",
-            json={"prompt": prompt, "stream": True},
-            stream=True,
-            timeout=300
-        )
-        
-        if response.status_code != 200:
-            yield f"Oops! Something went wrong. (Status: {response.status_code})"
-            return
+    if AGENT_RUNTIME == "Agentcore":
+        try:
+            client = boto3.client('bedrock-agentcore', region_name=os.getenv("AWS_REGION", "us-east-1"))
+            payload = json.dumps({"prompt": prompt})
+            runtime_session_id = str(uuid.uuid4())
+            
+            response = client.invoke_agent_runtime(
+                agentRuntimeArn=AGENTCORE_RUNTIME_ARN,
+                runtimeSessionId=runtime_session_id,
+                payload=payload,
+                qualifier="DEFAULT"
+            )
+            
+            # Process the response stream
+            for line in response["response"].iter_lines():
+                if line:
+                    line_str = line.decode('utf-8')
+                    if line_str.startswith('data: '):
+                        try:
+                            data = json.loads(line_str[6:])
+                            if 'chunk' in data:
+                                yield data['chunk']
+                            elif 'error' in data:
+                                yield f"\n\nStream Error: {data['error']}"
+                        except:
+                            continue
+        except Exception as e:
+            yield f"Agentcore runtime error: {str(e)}"
+    else:
+        try:
+            response = requests.post(
+                f"{API_BASE_URL}/invocations",
+                json={"prompt": prompt, "stream": True},
+                stream=True,
+                timeout=300
+            )
+            
+            if response.status_code != 200:
+                yield f"Oops! Something went wrong. (Status: {response.status_code})"
+                return
 
-        for line in response.iter_lines():
-            if line:
-                line_str = line.decode('utf-8')
-                if line_str.startswith('data: '):
-                    try:
-                        data = json.loads(line_str[6:])
-                        if 'chunk' in data:
-                            yield data['chunk']
-                        elif 'error' in data:
-                            yield f"\n\nStream Error: {data['error']}"
-                    except:
-                        continue
-    except Exception as e:
-        yield f"Connection issue: {str(e)}"
+            for line in response.iter_lines():
+                if line:
+                    line_str = line.decode('utf-8')
+                    if line_str.startswith('data: '):
+                        try:
+                            data = json.loads(line_str[6:])
+                            if 'chunk' in data:
+                                yield data['chunk']
+                            elif 'error' in data:
+                                yield f"\n\nStream Error: {data['error']}"
+                        except:
+                            continue
+        except Exception as e:
+            yield f"Connection issue: {str(e)}"
 
 def invoke_agent_non_streaming(prompt):
-    try:
-        response = requests.post(
-            f"{API_BASE_URL}/invocations",
-            json={"prompt": prompt, "stream": False},
-            timeout=300
-        )
-        if response.status_code == 200:
-            return response.json().get("response", "No response received.")
-        return f"Error: {response.status_code}"
-    except Exception as e:
-        return f"Error: {str(e)}"
+    if AGENT_RUNTIME == "Agentcore":
+        try:
+            client = boto3.client('bedrock-agentcore', region_name=os.getenv("AWS_REGION", "us-east-1"))
+            payload = json.dumps({"prompt": prompt})
+            runtime_session_id = str(uuid.uuid4())
+            
+            response = client.invoke_agent_runtime(
+                agentRuntimeArn=AGENTCORE_RUNTIME_ARN,
+                runtimeSessionId=runtime_session_id,
+                payload=payload,
+                qualifier="DEFAULT"
+            )
+            
+            response_data = json.loads(response["response"].read())
+            return response_data.get("response", "No response received.")
+        except Exception as e:
+            return f"Agentcore runtime error: {str(e)}"
+    else:
+        try:
+            response = requests.post(
+                f"{API_BASE_URL}/invocations",
+                json={"prompt": prompt, "stream": False},
+                timeout=300
+            )
+            if response.status_code == 200:
+                return response.json().get("response", "No response received.")
+            return f"Error: {response.status_code}"
+        except Exception as e:
+            return f"Error: {str(e)}"
 
 st.markdown("""
     <style>
@@ -237,6 +296,23 @@ st.markdown("""
         border: 1px solid rgba(239, 68, 68, 0.2);
     }
 
+    @keyframes thinking-dots {
+        0% { content: "."; }
+        33% { content: ".."; }
+        66%, 100% { content: "..."; }
+    }
+
+    .thinking-dots {
+        display: inline-block;
+        color: var(--text-color);
+        opacity: 0.7;
+    }
+
+    .thinking-dots::after {
+        content: "...";
+        animation: thinking-dots 1.5s steps(3, end) infinite;
+    }
+
     .stButton > button {
         background: linear-gradient(135deg, var(--primary-color) 0%, #FF9900 100%);
         color: white !important;
@@ -268,8 +344,8 @@ st.markdown("""
 
 st.markdown("""
     <div class="hero-box">
-        <div class="hero-title">AWS Assistant</div>
-        <div class="hero-sub">Your Intelligent Cloud Companion</div>
+        <div class="hero-title">AWS CloudOps Assistant</div>
+        <div class="hero-sub">Your Intelligent CloudOps Companion</div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -279,29 +355,37 @@ if "messages" not in st.session_state:
         "content": "Hi there! I'm ready to help you manage your cloud infrastructure. What's on your mind today?"
     }]
 
-def handle_input(input_text):
+def process_user_input(input_text):
     st.session_state.messages.append({"role": "user", "content": input_text})
     
-    status = get_agent_status()
-    if not status.get("agent_initialized"):
-        st.error("I'm having trouble connecting to the agent. Please check the backend.")
-    else:
-        with st.chat_message("assistant"):
+    with st.chat_message("user"):
+        st.markdown(input_text)
+    
+    with st.chat_message("assistant"):
+        thinking_placeholder = st.empty()
+        thinking_placeholder.markdown('<span class="thinking-dots">Thinking</span>', unsafe_allow_html=True)
+        
+        status = get_agent_status()
+        if not status.get("agent_initialized"):
+            thinking_placeholder.error("I'm having trouble connecting to the agent. Please check the backend.")
+            st.session_state.messages.append({"role": "assistant", "content": "Error: Agent not initialized."})
+        else:
             try:
+                thinking_placeholder.empty()
                 response_text = st.write_stream(stream_agent_response(input_text))
-            except:
+                st.session_state.messages.append({"role": "assistant", "content": response_text})
+            except Exception as e:
+                thinking_placeholder.empty()
                 response_text = invoke_agent_non_streaming(input_text)
                 st.markdown(response_text)
-            st.session_state.messages.append({"role": "assistant", "content": response_text})
+                st.session_state.messages.append({"role": "assistant", "content": response_text})
 
-chat_container = st.container()
-with chat_container:
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
 if prompt := st.chat_input("Ask me to deploy resources, check logs, or analyze costs..."):
-    handle_input(prompt)
+    process_user_input(prompt)
     st.rerun()
 
 with st.sidebar:
@@ -309,20 +393,20 @@ with st.sidebar:
     
     with st.expander("ℹ️ About", expanded=True):
         st.markdown("""
-            I'm your **AWS Assistant**, powered by **Claude 3.5 Sonnet**. 
+            I'm your **AWS CloudOps Assistant**, powered by **Bedrock FMs**. 
             I can help you safely manage your AWS environment through natural language.
         """)
     
     with st.expander("⚡ Quick Start", expanded=True):
         st.markdown("Try one of these:")
         if st.button("List all S3 buckets"):
-            handle_input("List all S3 buckets in my account")
+            process_user_input("List all S3 buckets in my account")
             st.rerun()
         if st.button("Check running EC2 instances"):
-            handle_input("Show me all running EC2 instances")
+            process_user_input("Show me all running EC2 instances")
             st.rerun()
         if st.button("Analyze monthly costs"):
-            handle_input("Analyze my AWS costs for the last month")
+            process_user_input("Analyze my AWS costs for the last month")
             st.rerun()
 
     with st.expander("🚀 Capabilities", expanded=False):
@@ -342,8 +426,12 @@ with st.sidebar:
     with st.expander("🤖 Agent Status", expanded=False):
         st.markdown(f"""
             <div class="status-row">
-                <span>Gateway</span>
+                <span>connection</span>
                 <span class="badge {gw_badge}">{gw_text}</span>
+            </div>
+            <div class="status-row">
+                <span>Runtime</span>
+                <span class="badge badge-neutral">{AGENT_RUNTIME}</span>
             </div>
             <div class="status-row">
                 <span>Latency</span>
@@ -351,7 +439,7 @@ with st.sidebar:
             </div>
             <div class="status-row">
                 <span>Model</span>
-                <span style="opacity: 0.6; font-size: 0.75rem;">Claude 3.5 Sonnet</span>
+                <span style="opacity: 0.6; font-size: 0.75rem;">{BEDROCK_MODEL_ID}</span>
             </div>
         """, unsafe_allow_html=True)
         
@@ -359,4 +447,4 @@ with st.sidebar:
             st.rerun()
 
     st.markdown("---")
-    st.caption(f"v2.3.0 • Connected to {API_BASE_URL}")
+    st.caption(f"{STRANDS_AGENT_VERSION} • Connected to {AGENT_RUNTIME}")
