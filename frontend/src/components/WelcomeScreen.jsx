@@ -20,10 +20,10 @@ const WelcomeScreen = ({ onJoin }) => {
 
       <div className="relative w-full max-w-md p-8 bg-stealth-card border border-white/5 rounded-2xl shadow-2xl backdrop-blur-xl">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 mb-6 rounded-2xl bg-gradient-to-br from-neon-primary to-neon-accent flex items-center justify-center text-black shadow-[0_0_30px_rgba(0,255,157,0.3)]">
+          <div className="w-16 h-16 mb-6 rounded-2xl bg-gradient-to-br from-neon-primary to-neon-accent flex items-center justify-center text-white shadow-[0_0_30px_rgba(168,85,247,0.3)]">
             <Cloud size={40} strokeWidth={2.5} />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">AWS Assistant</h1>
+          <h1 className="text-2xl font-bold text-white mb-2">AWS CloudOps Assistant</h1>
           <p className="text-gray-400 text-center text-sm">
             Your intelligent companion for cloud operations. <br/>
             Enter your username to begin.
@@ -53,7 +53,7 @@ const WelcomeScreen = ({ onJoin }) => {
             className={`
               w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all duration-300
               ${username.trim() 
-                ? 'bg-gradient-to-r from-neon-primary to-neon-accent text-black hover:shadow-[0_0_20px_rgba(0,255,157,0.4)] hover:scale-[1.02]' 
+                ? 'bg-gradient-to-r from-neon-primary to-neon-accent text-white hover:shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:scale-[1.02]' 
                 : 'bg-white/5 text-gray-500 cursor-not-allowed'}
             `}
           >

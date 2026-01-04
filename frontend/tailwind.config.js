@@ -10,9 +10,9 @@ export default {
         'stealth-bg': '#0a0a0a',
         'stealth-surface': '#121212',
         'stealth-card': '#1a1a1a',
-        'neon-primary': '#00ff9d', // Popy green
-        'neon-secondary': '#bd00ff', // Popy purple
-        'neon-accent': '#00eaff', // Popy blue
+        'neon-primary': '#a855f7', // Purple from agentcore logo
+        'neon-secondary': '#ec4899', // Pink from agentcore logo
+        'neon-accent': '#fb923c', // Orange from agentcore logo
       },
       fontFamily: {
         sans: ['Inter', 'sans-serif'],

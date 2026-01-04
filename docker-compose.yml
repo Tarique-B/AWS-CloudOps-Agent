@@ -8,9 +8,9 @@ services:
       dockerfile: Dockerfile.agent
     container_name: aws-assistant-agent
     ports:
-      - "8888:8888"
+      - "8080:8080"
     environment:
-      - PORT=8888
+      - PORT=8080
       - LOG_LEVEL=INFO
       - BEDROCK_MODEL_ID=anthropic.claude-3-sonnet-20240229-v1:0
       # AWS credentials - pass through from host
@@ -20,7 +20,7 @@ services:
       # - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8888/ping"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/ping"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -37,7 +37,7 @@ services:
     ports:
       - "8501:8501"
     environment:
-      - API_BASE_URL=http://agent:8888
+      - API_BASE_URL=http://agent:8080
       - LOG_LEVEL=INFO
     depends_on:
       agent:

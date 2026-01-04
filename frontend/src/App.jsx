@@ -15,6 +15,8 @@ function App() {
       content: "Hi there! I'm ready to help you manage your cloud infrastructure. What's on your mind today?"
     }
   ]);
+  
+  
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState(null);
   const [latency, setLatency] = useState(null);
@@ -185,7 +187,7 @@ function App() {
         {/* Header - Mobile Only or minimalist */}
         <div className="md:hidden flex items-center p-4 border-b border-white/5 z-10 bg-stealth-bg/80 backdrop-blur-md">
           <Terminal className="text-neon-primary mr-2" size={20} />
-          <span className="font-bold text-gray-100">AWS Assistant</span>
+          <span className="font-bold text-gray-100">AWS CloudOps Assistant</span>
         </div>
 
         {/* Chat Area */}

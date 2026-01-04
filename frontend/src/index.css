@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --color-neon-primary: #00ff9d;
-  --color-neon-secondary: #bd00ff;
+  --color-neon-primary: #a855f7;
+  --color-neon-secondary: #ec4899;
 }
 
 body {
@@ -43,10 +43,10 @@ body {
 
 /* Glow effects */
 .glow-text {
-  text-shadow: 0 0 10px rgba(0, 255, 157, 0.5);
+  text-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
 }
 
 .glow-border {
-  box-shadow: 0 0 15px rgba(0, 255, 157, 0.15);
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.15);
 }
 

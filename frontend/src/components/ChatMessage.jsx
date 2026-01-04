@@ -45,7 +45,7 @@ const ChatMessage = ({ message }) => {
         <div className={`
           p-4 rounded-2xl text-sm leading-relaxed overflow-hidden relative group
           ${isUser 
-            ? 'bg-stealth-card border border-neon-primary/20 text-gray-100 rounded-tr-sm shadow-[0_0_15px_rgba(0,255,157,0.05)]' 
+            ? 'bg-stealth-card border border-neon-primary/20 text-gray-100 rounded-tr-sm shadow-[0_0_15px_rgba(168,85,247,0.05)]' 
             : 'bg-stealth-surface border border-white/5 text-gray-300 rounded-tl-sm'}
         `}>
           {isUser ? (

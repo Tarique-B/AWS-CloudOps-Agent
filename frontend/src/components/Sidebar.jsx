@@ -78,11 +78,11 @@ const Sidebar = ({ onQuickAction, status, sessionInfo, onNewSession, latency, on
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-6 border-b border-white/5">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-neon-primary to-neon-accent flex items-center justify-center text-black font-bold shadow-[0_0_15px_rgba(0,255,157,0.3)]">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-neon-primary to-neon-accent flex items-center justify-center text-white font-bold shadow-[0_0_15px_rgba(168,85,247,0.3)]">
             <Cloud size={20} />
           </div>
           <div>
-            <h1 className="font-bold text-gray-100 text-sm tracking-wide">AWS ASSISTANT</h1>
+            <h1 className="font-bold text-gray-100 text-sm tracking-wide">AWS CLOUDOPS ASSISTANT</h1>
             <p className="text-[10px] text-gray-500 font-mono">INTELLIGENT CLOUD OPS</p>
           </div>
         </div>

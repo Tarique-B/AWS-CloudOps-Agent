@@ -27,8 +27,8 @@ MEMORY_ID = os.getenv("AGENTCORE_LTM_MEMORY_ID")
 logger.info(f"Using Bedrock Model ID: {BEDROCK_MODEL_ID} in region: {BEDROCK_MODEL_REGION}")
 
 def create_aws_assistant_agent(session_id: str = None, actor_id: str = None):
-    logger.info(f"Creating AWS Assistant agent (session_id={session_id}, actor_id={actor_id})")
-    system_prompt = """You are an AWS Assistant. Your role is to help users interact with and manage AWS services.
+    logger.info(f"Creating AWS CloudOps Assistant agent (session_id={session_id}, actor_id={actor_id})")
+    system_prompt = """You are an AWS CloudOps Assistant. Your role is to help users interact with and manage AWS services.
 
 You have access to AWS services through the use_aws tool, which gives you comprehensive access to all AWS services.
 
@@ -80,13 +80,13 @@ Be helpful, professional, and focus on AWS-related tasks."""
             tools=[use_aws],
             session_manager=session_manager
         )
-        logger.info("AWS Assistant agent created successfully")
+        logger.info("AWS CloudOps Assistant agent created successfully")
         return agent
     except Exception as e:
-        logger.error(f"Failed to create AWS Assistant agent: {str(e)}")
+        logger.error(f"Failed to create AWS CloudOps Assistant agent: {str(e)}")
         raise
 
-app = FastAPI(title="AWS Assistant API", version="1.0.0")
+app = FastAPI(title="AWS CloudOps Assistant API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -107,7 +107,7 @@ default_agent = None
 async def startup_event():
     """Initialize default agent on startup"""
     global default_agent
-    logger.info("Starting up AWS Assistant API server")
+    logger.info("Starting up AWS CloudOps Assistant API server")
     try:
         default_agent = create_aws_assistant_agent()
         logger.info("Default agent initialized successfully on startup")
@@ -166,28 +166,68 @@ async def invoke_agent(request: InvocationRequest):
         async def generate_stream():
             try:
                 async for event in current_agent.stream_async(request.prompt):
-                    if "data" in event:
-                        data = event["data"]
-                        # Skip tool usage events in data
-                        if isinstance(data, dict) and ("toolUse" in data or "toolResult" in data):
-                            continue
-                        chunk = str(data)
-                        yield f"data: {json.dumps({'chunk': chunk})}\n\n"
-                    elif "delta" in event:
-                        delta = event["delta"]
-                        # Skip tool usage events in delta
-                        if isinstance(delta, dict) and ("toolUse" in delta or "toolResult" in delta):
-                            continue
+                    chunk = None
+                    
+                    # Handle various event structures from strands Agent
+                    # Check for contentBlockDelta structure (nested event format)
+                    if isinstance(event, dict):
+                        # Handle contentBlockDelta: {delta: {text: "..."}}
+                        if "contentBlockDelta" in event:
+                            delta = event["contentBlockDelta"].get("delta", {})
+                            if isinstance(delta, dict) and "text" in delta:
+                                chunk = delta["text"]
+                            elif isinstance(delta, str):
+                                chunk = delta
                         
-                        # Handle text content in delta
-                        if isinstance(delta, dict) and "text" in delta:
-                            chunk = delta["text"]
-                        elif isinstance(delta, str):
-                            chunk = delta
-                        else:
-                            chunk = str(delta)
-
+                        # Handle direct delta structure: {delta: {text: "..."}}
+                        elif "delta" in event:
+                            delta = event["delta"]
+                            # Skip tool usage events in delta
+                            if isinstance(delta, dict) and ("toolUse" in delta or "toolResult" in delta):
+                                continue
+                            
+                            # Handle text content in delta
+                            if isinstance(delta, dict) and "text" in delta:
+                                chunk = delta["text"]
+                            elif isinstance(delta, str):
+                                chunk = delta
+                            else:
+                                chunk = str(delta)
+                        
+                        # Handle direct data structure: {data: "..."}
+                        elif "data" in event:
+                            data = event["data"]
+                            # Skip tool usage events in data
+                            if isinstance(data, dict) and ("toolUse" in data or "toolResult" in data):
+                                continue
+                            chunk = str(data)
+                        
+                        # Handle text field directly: {text: "..."}
+                        elif "text" in event:
+                            chunk = event["text"]
+                        
+                        # Handle content field: {content: "..."} or {content: [{text: "..."}]}
+                        elif "content" in event:
+                            content = event["content"]
+                            if isinstance(content, str):
+                                chunk = content
+                            elif isinstance(content, list) and len(content) > 0:
+                                first_item = content[0]
+                                if isinstance(first_item, dict) and "text" in first_item:
+                                    chunk = first_item["text"]
+                                else:
+                                    chunk = str(first_item)
+                            else:
+                                chunk = str(content)
+                    
+                    # If event is a string directly
+                    elif isinstance(event, str):
+                        chunk = event
+                    
+                    # If we extracted a chunk, yield it
+                    if chunk is not None:
                         yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+                
                 yield f"data: {json.dumps({'done': True})}\n\n"
                 logger.info("Streaming invocation completed successfully")
             except Exception as e:
@@ -239,6 +279,6 @@ def _extract_response_text(response):
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", 8888))
-    logger.info(f"Starting AWS Assistant API server on port {port}")
+    port = int(os.getenv("PORT", 8080))
+    logger.info(f"Starting AWS CloudOps Assistant API server on port {port}")
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
