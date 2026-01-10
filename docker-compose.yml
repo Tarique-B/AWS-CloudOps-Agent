@@ -1,5 +1,4 @@
-version: '3.8'
-
+# Run agent locally with docker compose
 services:
   # FastAPI Agent Service
   agent:
@@ -32,10 +31,10 @@ services:
   chatbot:
     build:
       context: .
-      dockerfile: Dockerfile.chatbot
-    container_name: aws-assistant-chatbot
+      dockerfile: Dockerfile.app
+    container_name: aws-cloudops-assistant
     ports:
-      - "8501:8501"
+      - "80:80"
     environment:
       - API_BASE_URL=http://agent:8080
       - LOG_LEVEL=INFO

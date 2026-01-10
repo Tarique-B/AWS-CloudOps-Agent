@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8080")
 AGENTCORE_RUNTIME_ARN = os.getenv("AGENTCORE_RUNTIME_ARN")
+AGENTCORE_RUNTIME_ENDPOINT = os.getenv("AGENTCORE_RUNTIME_ENDPOINT", "DEFAULT")
 AGENT_RUNTIME = "Agentcore" if AGENTCORE_RUNTIME_ARN else "local"
 STRANDS_AGENT_VERSION = os.getenv("STRANDS_AGENT_VERSION", "v1.0.0")
 BEDROCK_MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "unknown")
@@ -54,7 +55,7 @@ def stream_agent_response(prompt):
                 agentRuntimeArn=AGENTCORE_RUNTIME_ARN,
                 runtimeSessionId=runtime_session_id,
                 payload=payload,
-                qualifier="DEFAULT"
+                qualifier=AGENTCORE_RUNTIME_ENDPOINT
             )
             
             # Process the response stream
@@ -111,7 +112,7 @@ def invoke_agent_non_streaming(prompt):
                 agentRuntimeArn=AGENTCORE_RUNTIME_ARN,
                 runtimeSessionId=runtime_session_id,
                 payload=payload,
-                qualifier="DEFAULT"
+                qualifier=AGENTCORE_RUNTIME_ENDPOINT
             )
             
             response_data = json.loads(response["response"].read())
@@ -1015,6 +1016,13 @@ with st.sidebar:
     gw_text = "ONLINE" if is_healthy else "OFFLINE"
 
     with st.expander("🤖 Agent Status", expanded=True):
+        endpoint_row = f"""
+            <div class="status-row">
+                <span>Endpoint</span>
+                <span class="badge badge-neutral">{AGENTCORE_RUNTIME_ENDPOINT}</span>
+            </div>
+        """ if AGENT_RUNTIME == "Agentcore" else ""
+        
         st.markdown(f"""
             <div class="status-row">
                 <span>connection</span>
@@ -1024,6 +1032,7 @@ with st.sidebar:
                 <span>Runtime</span>
                 <span class="badge badge-neutral">{AGENT_RUNTIME}</span>
             </div>
+            {endpoint_row}
             <div class="status-row">
                 <span>Latency</span>
                 <span class="badge badge-neutral">~24ms</span>
