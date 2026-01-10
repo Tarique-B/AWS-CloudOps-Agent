@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from strands import Agent
-from strands_tools import use_aws
+from strands_tools import use_aws, current_time
 from strands.models.bedrock import BedrockModel
 from bedrock_agentcore.memory import MemoryClient
 from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig, RetrievalConfig
@@ -28,18 +28,65 @@ logger.info(f"Using Bedrock Model ID: {BEDROCK_MODEL_ID} in region: {BEDROCK_MOD
 
 def create_aws_assistant_agent(session_id: str = None, actor_id: str = None):
     logger.info(f"Creating AWS CloudOps Assistant agent (session_id={session_id}, actor_id={actor_id})")
-    system_prompt = """You are an AWS CloudOps Assistant. Your role is to help users interact with and manage AWS services.
+    system_prompt = """You are an AWS CloudOps Assistant, a specialized AI agent designed to help users manage, monitor, and interact with AWS cloud infrastructure and services.
 
-You have access to AWS services through the use_aws tool, which gives you comprehensive access to all AWS services.
+## Your Role
+Your primary role is to assist users with AWS-related tasks including:
+- Infrastructure management and deployment
+- Resource provisioning, configuration, and monitoring
+- Cost analysis and optimization
+- Security auditing and compliance
+- Log analysis and troubleshooting
+- Service recommendations and best practices
 
-When users ask about AWS:
-- Use the use_aws tool to interact with AWS services
-- Provide clear, helpful responses
+## Available Tools
+You have access to the following tools:
+1. **use_aws**: Comprehensive tool that provides access to all AWS services. Use this tool to:
+   - Query AWS resources (EC2, S3, RDS, Lambda, etc.)
+   - Create, update, or delete AWS resources
+   - Execute AWS CLI commands and API calls
+   - Retrieve service metrics and logs
+   - Manage IAM policies and permissions
+2. **current_time**: Get the current date and time for time-sensitive operations and scheduling
+
+## Handling Resource-Related Requests
+When users ask about AWS resources:
+- **Querying Resources**: Use use_aws to list, describe, or get details about resources. Always specify the AWS service, region, and any filters needed.
+- **Creating Resources**: Before creating resources, explain what will be created, estimated costs if applicable, and confirm the configuration. Use use_aws to provision resources.
+- **Modifying Resources**: Clearly explain what changes will be made and their potential impact. Use use_aws to update resources.
+- **Deleting Resources**: Exercise extreme caution. Always warn users about data loss and irreversible actions. Confirm before proceeding with deletions.
+- **Resource Monitoring**: Use use_aws to fetch CloudWatch metrics, logs, and service health status.
+
+## Handling General Requests
+For general AWS questions and guidance:
+- **Best Practices**: Provide recommendations based on AWS Well-Architected Framework principles
+- **Service Selection**: Help users choose appropriate AWS services for their use cases
+- **Architecture Guidance**: Offer architectural patterns and design recommendations
+- **Cost Optimization**: Suggest ways to reduce AWS costs and optimize resource usage
+- **Security**: Provide security best practices and compliance guidance
+- **Documentation**: Reference AWS documentation and explain concepts clearly
+
+## Guardrails and Boundaries
+**CRITICAL**: You must strictly adhere to the following boundaries:
+- **AWS Domain Only**: Only entertain queries related to AWS services, cloud infrastructure, and cloud operations. Politely decline and redirect queries about:
+  - General programming questions unrelated to AWS
+  - Non-technical topics (weather, news, general knowledge)
+  - Personal questions or conversations
+  - Topics outside cloud infrastructure and operations
+- **Response Format**: When declining non-AWS queries, politely state: "I'm specialized in AWS cloud operations. I can help you with AWS services, infrastructure management, or cloud operations. How can I assist you with AWS today?"
+- **Security**: Never execute destructive operations without explicit user confirmation. Always validate IAM permissions before attempting operations.
+- **Scope**: Focus on cloud infrastructure, services, and operations. Avoid deep dives into application-level code unless it's directly related to AWS service integration.
+
+## Response Guidelines
+- Always respond in markdown format
+- Provide clear, structured explanations
 - Explain what you're doing before executing actions
-- Report errors clearly if something goes wrong
-- Actively recall and consider the user's preferences and known facts to personalize and improve your assistance.
+- Report errors clearly with actionable guidance
+- Actively recall and consider the user's preferences and known facts to personalize assistance
+- Use code blocks for AWS CLI commands, API calls, and configuration examples
+- Include relevant AWS service documentation links when helpful
 
-Be helpful, professional, and focus on AWS-related tasks."""
+Be helpful, professional, and maintain strict focus on AWS cloud operations."""
 
     session_manager = None
     if MEMORY_ID and session_id and actor_id:
@@ -77,7 +124,7 @@ Be helpful, professional, and focus on AWS-related tasks."""
         agent = Agent(
             model=BedrockModel(model_id=BEDROCK_MODEL_ID, region=BEDROCK_MODEL_REGION),
             system_prompt=system_prompt,
-            tools=[use_aws],
+            tools=[use_aws, current_time],
             session_manager=session_manager
         )
         logger.info("AWS CloudOps Assistant agent created successfully")
@@ -148,13 +195,10 @@ async def invoke_agent(request: InvocationRequest):
     
     logger.info(f"Invocation request received: stream={request.stream}, prompt_length={len(request.prompt)}, session_id={request.session_id}")
     
-    # Determine which agent to use
     if request.session_id and request.actor_id and MEMORY_ID:
-        # Create a specific agent instance for this session/actor
         logger.info("Creating session-specific agent with memory")
         current_agent = create_aws_assistant_agent(request.session_id, request.actor_id)
     else:
-        # Use default agent
         logger.info("Using default agent (no memory/session context)")
         if not default_agent:
              default_agent = create_aws_assistant_agent()
@@ -167,46 +211,36 @@ async def invoke_agent(request: InvocationRequest):
             try:
                 async for event in current_agent.stream_async(request.prompt):
                     chunk = None
-                    
-                    # Handle various event structures from strands Agent
-                    # Check for contentBlockDelta structure (nested event format)
+
                     if isinstance(event, dict):
-                        # Handle contentBlockDelta: {delta: {text: "..."}}
                         if "contentBlockDelta" in event:
                             delta = event["contentBlockDelta"].get("delta", {})
                             if isinstance(delta, dict) and "text" in delta:
                                 chunk = delta["text"]
                             elif isinstance(delta, str):
                                 chunk = delta
-                        
-                        # Handle direct delta structure: {delta: {text: "..."}}
+
                         elif "delta" in event:
                             delta = event["delta"]
-                            # Skip tool usage events in delta
                             if isinstance(delta, dict) and ("toolUse" in delta or "toolResult" in delta):
                                 continue
                             
-                            # Handle text content in delta
                             if isinstance(delta, dict) and "text" in delta:
                                 chunk = delta["text"]
                             elif isinstance(delta, str):
                                 chunk = delta
                             else:
                                 chunk = str(delta)
-                        
-                        # Handle direct data structure: {data: "..."}
+
                         elif "data" in event:
                             data = event["data"]
-                            # Skip tool usage events in data
                             if isinstance(data, dict) and ("toolUse" in data or "toolResult" in data):
                                 continue
                             chunk = str(data)
                         
-                        # Handle text field directly: {text: "..."}
                         elif "text" in event:
                             chunk = event["text"]
                         
-                        # Handle content field: {content: "..."} or {content: [{text: "..."}]}
                         elif "content" in event:
                             content = event["content"]
                             if isinstance(content, str):
@@ -220,11 +254,9 @@ async def invoke_agent(request: InvocationRequest):
                             else:
                                 chunk = str(content)
                     
-                    # If event is a string directly
                     elif isinstance(event, str):
                         chunk = event
                     
-                    # If we extracted a chunk, yield it
                     if chunk is not None:
                         yield f"data: {json.dumps({'chunk': chunk})}\n\n"
                 
