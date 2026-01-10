@@ -178,7 +178,7 @@ st.markdown("""
         border-radius: 16px;
         color: var(--text-color);
         text-align: center;
-        border: 1px solid rgba(128, 128, 128, 0.3);
+        border: 1px solid rgba(236, 72, 153, 0.15);
         margin-bottom: 2rem;
     }
     
@@ -206,8 +206,9 @@ st.markdown("""
     
     .hero-sub { 
         opacity: 0.7; 
-        font-size: 1.1rem; 
-        margin-top: 0.5rem; 
+        font-size: 1.2rem; 
+        margin-top: 0.75rem; 
+        line-height: 1.6;
         color: var(--text-color) !important; 
     }
 
@@ -243,9 +244,9 @@ st.markdown("""
 
     div[data-testid="stChatMessage"] > div > div:last-child {
         background-color: transparent !important;
-        border: 1px solid rgba(128, 128, 128, 0.3) !important;
-        border-radius: 16px !important;
-        padding: 1rem 1.25rem !important;
+        border: 1px solid rgba(236, 72, 153, 0.15) !important;
+        border-radius: 12px !important;
+        padding: 0.875rem 1.125rem !important;
         color: var(--text-color) !important;
         margin: 0 !important;
         flex: 1 !important;
@@ -253,8 +254,8 @@ st.markdown("""
 
     div[data-testid="stChatMessage"] .stMarkdown {
         color: var(--text-color) !important;
-        font-size: 1rem;
-        line-height: 1.6;
+        font-size: 1.125rem;
+        line-height: 1.75;
         background-color: transparent !important;
     }
 
@@ -267,24 +268,35 @@ st.markdown("""
     }
 
     div[data-testid="stChatMessage"] .stMarkdown p {
-        margin: 0.25rem 0;
-        line-height: 1.5;
+        margin: 0.5rem 0;
+        line-height: 1.7;
+    }
+
+    div[data-testid="stChatMessage"] .stMarkdown p:first-child {
+        margin-top: 0;
+    }
+
+    div[data-testid="stChatMessage"] .stMarkdown p:last-child {
+        margin-bottom: 0;
     }
 
     div[data-testid="stChatMessage"] .stMarkdown code {
         background-color: rgba(128, 128, 128, 0.15);
-        padding: 0.2rem 0.4rem;
+        padding: 0.3rem 0.5rem;
         border-radius: 4px;
-        font-size: 0.9em;
+        font-size: 0.95em;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
     }
 
     div[data-testid="stChatMessage"] .stMarkdown pre {
         background-color: rgba(128, 128, 128, 0.1);
         border: 1px solid rgba(128, 128, 128, 0.2);
         border-radius: 8px;
-        padding: 0.75rem;
+        padding: 0.875rem;
         overflow-x: auto;
-        margin: 0.5rem 0;
+        margin: 0.75rem 0;
+        font-size: 0.9rem;
+        line-height: 1.5;
     }
 
     div[data-testid="stChatMessage"] .stMarkdown pre code {
@@ -294,30 +306,63 @@ st.markdown("""
 
     div[data-testid="stChatMessage"] .stMarkdown ul,
     div[data-testid="stChatMessage"] .stMarkdown ol {
-        margin: 0.25rem 0;
-        padding-left: 1.25rem;
+        margin: 0.75rem 0;
+        padding-left: 1.5rem;
+        line-height: 1.8;
     }
 
-    div[data-testid="stChatMessage"] .stMarkdown h1,
-    div[data-testid="stChatMessage"] .stMarkdown h2,
-    div[data-testid="stChatMessage"] .stMarkdown h3 {
-        margin-top: 0.75rem;
-        margin-bottom: 0.25rem;
+    div[data-testid="stChatMessage"] .stMarkdown ul li,
+    div[data-testid="stChatMessage"] .stMarkdown ol li {
+        margin: 0.5rem 0;
+    }
+
+    div[data-testid="stChatMessage"] .stMarkdown h1 {
+        margin-top: 1.5rem;
+        margin-bottom: 1rem;
         color: var(--text-color);
+        font-size: 1.75rem;
+        line-height: 1.4;
+        font-weight: 700;
+    }
+
+    div[data-testid="stChatMessage"] .stMarkdown h2 {
+        margin-top: 1.25rem;
+        margin-bottom: 0.75rem;
+        color: var(--text-color);
+        font-size: 1.5rem;
+        line-height: 1.4;
+        font-weight: 600;
+    }
+
+    div[data-testid="stChatMessage"] .stMarkdown h3 {
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+        color: var(--text-color);
+        font-size: 1.25rem;
+        line-height: 1.5;
+        font-weight: 600;
     }
 
     div[data-testid="stChatMessage"] .stMarkdown blockquote {
         border-left: 3px solid rgba(128, 128, 128, 0.3);
-        padding-left: 0.75rem;
-        margin: 0.5rem 0;
+        padding-left: 1rem;
+        margin: 1rem 0;
         color: var(--text-color);
         opacity: 0.9;
+        line-height: 1.7;
     }
 
     div[data-testid="stChatMessage"] .stMarkdown table {
         border-collapse: collapse;
         width: 100%;
-        margin: 0.5rem 0;
+        margin: 1rem 0;
+        font-size: 0.95rem;
+    }
+
+    div[data-testid="stChatMessage"] .stMarkdown table th,
+    div[data-testid="stChatMessage"] .stMarkdown table td {
+        padding: 0.75rem;
+        line-height: 1.6;
     }
 
     div[data-testid="stChatMessage"] .stMarkdown table th,
@@ -355,9 +400,10 @@ st.markdown("""
     div[data-testid="stChatInput"] {
         border-radius: 20px !important;
         background-color: var(--background-color) !important;
-        border: none !important;
+        border: 2px solid transparent !important;
         box-shadow: none !important;
-        padding: 2px !important;
+        padding: 0 !important;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
     }
 
     div[data-testid="stChatInput"],
@@ -390,16 +436,16 @@ st.markdown("""
     }
     
     div[data-testid="stChatInput"]:focus-within {
-        border: none !important;
-        box-shadow: none !important;
+        border: 2px solid rgba(236, 72, 153, 0.4) !important;
+        border-radius: 20px !important;
+        box-shadow: 0 0 0 2px rgba(236, 72, 153, 0.1), 0 0 8px rgba(236, 72, 153, 0.15) !important;
         outline: none !important;
     }
 
     div[data-testid="stChatInput"]:focus-within,
     div[data-testid="stChatInput"]:focus-within * {
-        border-color: rgba(128, 128, 128, 0.3) !important;
+        border-color: #A855F7 !important;
         outline: none !important;
-        box-shadow: none !important;
     }
 
     div[data-testid="stChatInput"]:focus-within textarea {
@@ -494,9 +540,9 @@ st.markdown("""
     }
 
     .streamlit-expanderHeader {
-        background: rgba(128, 128, 128, 0.1) !important;
+        background: rgba(236, 72, 153, 0.04) !important;
         border-radius: 8px !important;
-        border: 1px solid rgba(128, 128, 128, 0.2) !important;
+        border: 1px solid rgba(236, 72, 153, 0.12) !important;
         color: var(--text-color) !important;
         transition: all 0.2s ease !important;
         padding: 0.75rem 1rem !important;
@@ -510,7 +556,7 @@ st.markdown("""
     .streamlit-expanderHeader::before {
         content: '▶' !important;
         font-size: 0.7rem !important;
-        color: rgba(255, 255, 255, 0.7) !important;
+        color: rgba(236, 72, 153, 0.6) !important;
         transition: transform 0.2s ease !important;
         margin-right: 0.25rem !important;
     }
@@ -520,8 +566,8 @@ st.markdown("""
     }
     
     .streamlit-expanderHeader:hover {
-        border-color: rgba(128, 128, 128, 0.3) !important;
-        background: rgba(128, 128, 128, 0.15) !important;
+        border-color: rgba(236, 72, 153, 0.2) !important;
+        background: rgba(236, 72, 153, 0.06) !important;
         transform: translateX(2px) !important;
     }
     
@@ -534,7 +580,8 @@ st.markdown("""
     }
 
     .streamlit-expanderHeader[aria-expanded="true"] {
-        background: rgba(128, 128, 128, 0.15) !important;
+        background: rgba(236, 72, 153, 0.06) !important;
+        border-color: rgba(236, 72, 153, 0.18) !important;
     }
 
     .status-row {
@@ -544,10 +591,10 @@ st.markdown("""
         padding: 0.75rem 1rem;
         border-radius: 8px;
         font-size: 0.9rem;
-        color: #1f77b4;
-        background: rgba(19, 124, 189, 0.08);
+        color: rgba(236, 72, 153, 0.7);
+        background: rgba(236, 72, 153, 0.04);
         margin-bottom: 0.5rem;
-        border: 1px solid rgba(19, 124, 189, 0.15);
+        border: 1px solid rgba(236, 72, 153, 0.12);
     }
     
     .streamlit-expanderContent .status-row:last-of-type {
@@ -580,9 +627,9 @@ st.markdown("""
     }
     
     .badge-neutral {
-        background-color: rgba(19, 124, 189, 0.15);
-        color: #1f77b4;
-        border: 1px solid rgba(19, 124, 189, 0.2);
+        background-color: rgba(236, 72, 153, 0.1);
+        color: rgba(236, 72, 153, 0.8);
+        border: 1px solid rgba(236, 72, 153, 0.2);
     }
     
     .badge-active {
@@ -603,10 +650,44 @@ st.markdown("""
         66%, 100% { content: "..."; }
     }
 
+    @keyframes pulse-glow {
+        0%, 100% {
+            opacity: 0.6;
+            transform: scale(1);
+        }
+        50% {
+            opacity: 1;
+            transform: scale(1.05);
+        }
+    }
+
+    @keyframes spin {
+        from {
+            transform: rotate(0deg);
+        }
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
     .thinking-dots {
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
         color: var(--text-color);
-        opacity: 0.7;
+        opacity: 0.8;
+        font-size: 1rem;
+    }
+
+    .thinking-dots::before {
+        content: '';
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(19, 124, 189, 0.3);
+        border-top-color: #1f77b4;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        display: inline-block;
     }
 
     .thinking-dots::after {
@@ -614,10 +695,59 @@ st.markdown("""
         animation: thinking-dots 1.5s steps(3, end) infinite;
     }
 
+    .loading-container {
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.75rem !important;
+        padding: 1rem 1.25rem !important;
+        background: rgba(236, 72, 153, 0.04) !important;
+        border: 1px solid rgba(236, 72, 153, 0.15) !important;
+        border-radius: 16px !important;
+        margin: 0 !important;
+        min-height: 60px !important;
+        width: 100% !important;
+    }
+
+    .loading-spinner {
+        width: 20px !important;
+        height: 20px !important;
+        border: 3px solid rgba(236, 72, 153, 0.2) !important;
+        border-top-color: rgba(236, 72, 153, 0.7) !important;
+        border-radius: 50% !important;
+        animation: spin 0.8s linear infinite !important;
+        flex-shrink: 0 !important;
+    }
+
+    .loading-text {
+        background: linear-gradient(135deg, #22C55E 0%, #10B981 15%, #EC4899 35%, #E91E63 50%, #DB2777 65%, #A855F7 85%, #9333EA 100%) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        background-clip: text !important;
+        background-size: 200% 200% !important;
+        animation: gradient-shift 3s ease infinite !important;
+        font-size: 0.95rem !important;
+        font-weight: 500 !important;
+    }
+
+    .loading-dots::after {
+        content: '...';
+        animation: loading-dots 1.4s steps(4, end) infinite;
+        display: inline-block;
+        width: 1.5em;
+        text-align: left;
+    }
+
+    @keyframes loading-dots {
+        0% { content: ''; }
+        25% { content: '.'; }
+        50% { content: '..'; }
+        75%, 100% { content: '...'; }
+    }
+
     .stButton > button {
-        background: rgba(19, 124, 189, 0.1) !important;
-        color: #1f77b4 !important;
-        border: 1px solid rgba(19, 124, 189, 0.2) !important;
+        background: rgba(236, 72, 153, 0.05) !important;
+        color: rgba(236, 72, 153, 0.8) !important;
+        border: 1px solid rgba(236, 72, 153, 0.15) !important;
         border-radius: 8px !important;
         padding: 0.5rem 1rem !important;
         font-weight: 500 !important;
@@ -627,16 +757,16 @@ st.markdown("""
     }
     
     .stButton > button:hover {
-        background: rgba(19, 124, 189, 0.15) !important;
-        border-color: rgba(19, 124, 189, 0.3) !important;
+        background: rgba(236, 72, 153, 0.08) !important;
+        border-color: rgba(236, 72, 153, 0.25) !important;
         transform: translateY(-1px) !important;
-        color: #1f77b4 !important;
-        box-shadow: 0 2px 4px rgba(19, 124, 189, 0.1) !important;
+        color: rgba(219, 39, 119, 0.9) !important;
+        box-shadow: 0 2px 4px rgba(236, 72, 153, 0.1) !important;
     }
     
     .stButton > button:active {
         transform: translateY(0) !important;
-        background: rgba(19, 124, 189, 0.12) !important;
+        background: rgba(236, 72, 153, 0.06) !important;
     }
 
     footer { visibility: hidden; }
@@ -782,38 +912,68 @@ if "messages" not in st.session_state:
 if "pending_prompt" not in st.session_state:
     st.session_state.pending_prompt = None
 
+if "processing" not in st.session_state:
+    st.session_state.processing = False
+
+if "pending_user_input" not in st.session_state:
+    st.session_state.pending_user_input = None
+
 def process_user_input(input_text):
     st.session_state.messages.append({"role": "user", "content": input_text})
-    
-    with st.chat_message("user"):
-        st.markdown(input_text)
-    
-    with st.chat_message("assistant"):
-        thinking_placeholder = st.empty()
-        thinking_placeholder.markdown('<span class="thinking-dots">Thinking</span>', unsafe_allow_html=True)
-        
-        status = get_agent_status()
-        if not status.get("agent_initialized"):
-            thinking_placeholder.error("I'm having trouble connecting to the agent. Please check the backend.")
-            st.session_state.messages.append({"role": "assistant", "content": "Error: Agent not initialized."})
-        else:
-            try:
-                thinking_placeholder.empty()
-                response_container = st.empty()
-                response_text = ""
-                for chunk in stream_agent_response(input_text):
-                    response_text += chunk
-                    response_container.markdown(response_text)
-                st.session_state.messages.append({"role": "assistant", "content": response_text})
-            except Exception as e:
-                thinking_placeholder.empty()
-                response_text = invoke_agent_non_streaming(input_text)
-                st.markdown(response_text)
-                st.session_state.messages.append({"role": "assistant", "content": response_text})
+    st.session_state.messages.append({"role": "assistant", "content": "LOADING"})
+    if "processing" not in st.session_state:
+        st.session_state.processing = False
+    if "pending_user_input" not in st.session_state:
+        st.session_state.pending_user_input = None
+    st.session_state.processing = True
+    st.session_state.pending_user_input = input_text
+    st.rerun()
 
-for msg in st.session_state.messages:
+for i, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+        if msg["content"] == "LOADING" and i == len(st.session_state.messages) - 1:
+            message_placeholder = st.empty()
+            message_placeholder.markdown("""
+                <div class="loading-container">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Invoking agent<span class="loading-dots"></span></div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            if st.session_state.get("processing") and st.session_state.get("pending_user_input"):
+                user_input = st.session_state.pending_user_input
+                st.session_state.processing = False
+                st.session_state.pending_user_input = None
+                
+                status = get_agent_status()
+                if not status.get("agent_initialized"):
+                    message_placeholder.error("I'm having trouble connecting to the agent. Please check the backend.")
+                    st.session_state.messages[i] = {"role": "assistant", "content": "Error: Agent not initialized."}
+                else:
+                    try:
+                        response_text = ""
+                        first_chunk = True
+                        for chunk in stream_agent_response(user_input):
+                            if first_chunk:
+                                message_placeholder.empty()
+                                first_chunk = False
+                            response_text += chunk
+                            message_placeholder.markdown(response_text)
+                        st.session_state.messages[i] = {"role": "assistant", "content": response_text}
+                    except Exception as e:
+                        message_placeholder.empty()
+                        response_text = invoke_agent_non_streaming(user_input)
+                        message_placeholder.markdown(response_text)
+                        st.session_state.messages[i] = {"role": "assistant", "content": response_text}
+        elif msg["content"] == "LOADING":
+            st.markdown("""
+                <div class="loading-container">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Invoking agent<span class="loading-dots"></span></div>
+                </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(msg["content"])
 
 if st.session_state.pending_prompt:
     prompt = st.session_state.pending_prompt
@@ -885,4 +1045,27 @@ with st.sidebar:
         """)
 
     st.markdown("---")
-    st.caption(f"{STRANDS_AGENT_VERSION} • Connected to {AGENT_RUNTIME}")
+    
+    st.markdown("<div style='margin-top: 2rem;'></div>", unsafe_allow_html=True)
+    if st.button("🗑️ Clear Chat", use_container_width=True):
+        st.session_state.messages = [{
+            "role": "assistant",
+            "content": "Hi there! I'm ready to help you manage your cloud infrastructure. What's on your mind today?"
+        }]
+        st.session_state.processing = False
+        st.session_state.pending_user_input = None
+        st.rerun()
+    
+    st.markdown("<div style='margin-top: 3rem;'></div>", unsafe_allow_html=True)
+    st.markdown(f"""
+        <div style="
+            text-align: center;
+            font-size: 0.75rem;
+            color: rgba(34, 197, 94, 0.7);
+            padding: 0.5rem 0;
+            border-top: 1px solid rgba(34, 197, 94, 0.1);
+            margin-top: 1rem;
+        ">
+            {STRANDS_AGENT_VERSION} • Connected to {AGENT_RUNTIME}
+        </div>
+    """, unsafe_allow_html=True)
