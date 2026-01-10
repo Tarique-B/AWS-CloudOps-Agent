@@ -131,6 +131,30 @@ def invoke_agent_non_streaming(prompt):
         except Exception as e:
             return f"Error: {str(e)}"
 
+def get_model_name(model_id):
+    if not model_id or model_id == "unknown":
+        return "Unknown"
+    
+    try:
+        parts = model_id.split(".")
+        if len(parts) >= 3:
+            model_part = parts[2]
+            model_parts = model_part.split("-")
+            
+            if len(model_parts) >= 3:
+                name = model_parts[0].capitalize()
+                version = f"{model_parts[1]}.{model_parts[2]}"
+                variant = model_parts[3].capitalize() if len(model_parts) > 3 else ""
+                
+                if variant:
+                    return f"{name} {version} {variant}"
+                else:
+                    return f"{name} {version}"
+        
+        return model_id.split(".")[-1].split(":")[0] if "." in model_id else model_id
+    except Exception:
+        return model_id            
+
 st.markdown("""
     <style>
     html, body, [class*="css"] {
@@ -162,8 +186,22 @@ st.markdown("""
         font-size: 2.2rem; 
         font-weight: 700; 
         margin: 0; 
-        color: var(--text-color) !important; 
+        background: linear-gradient(135deg, #22C55E 0%, #10B981 15%, #EC4899 35%, #E91E63 50%, #DB2777 65%, #A855F7 85%, #9333EA 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
         letter-spacing: -0.02em;
+        background-size: 200% 200%;
+        animation: gradient-shift 3s ease infinite;
+    }
+
+    @keyframes gradient-shift {
+        0%, 100% {
+            background-position: 0% 50%;
+        }
+        50% {
+            background-position: 100% 50%;
+        }
     }
     
     .hero-sub { 
@@ -174,23 +212,122 @@ st.markdown("""
     }
 
     div[data-testid="stChatMessage"] {
-        background-color: transparent;
-        border: none;
-        padding: 1rem 0;
+        background-color: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        margin-bottom: 1rem !important;
+        scroll-margin: 0 !important;
     }
 
-    div[data-testid="stChatMessage"][data-testid="user-message"] > div:first-child > div:first-child {
-        background-color: var(--secondary-background-color);
+    div[data-testid="stChatMessage"] > div {
+        display: flex !important;
+        align-items: center !important;
+        gap: 1rem !important;
+    }
+
+    div[data-testid="stChatMessage"] > div > div:first-child {
+        flex-shrink: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        visibility: visible !important;
+    }
+
+    div[data-testid="stChatMessage"] > div > div:first-child img {
+        display: block !important;
+        visibility: visible !important;
+        width: auto !important;
+        height: auto !important;
+        margin: 0 !important;
+    }
+
+    div[data-testid="stChatMessage"] > div > div:last-child {
+        background-color: transparent !important;
+        border: 1px solid rgba(128, 128, 128, 0.3) !important;
+        border-radius: 16px !important;
+        padding: 1rem 1.25rem !important;
+        color: var(--text-color) !important;
+        margin: 0 !important;
+        flex: 1 !important;
+    }
+
+    div[data-testid="stChatMessage"] .stMarkdown {
+        color: var(--text-color) !important;
+        font-size: 1rem;
+        line-height: 1.6;
+        background-color: transparent !important;
+    }
+
+    div[data-testid="stChatMessage"] .stMarkdown > *:first-child {
+        margin-top: 0;
+    }
+
+    div[data-testid="stChatMessage"] .stMarkdown > *:last-child {
+        margin-bottom: 0;
+    }
+
+    div[data-testid="stChatMessage"] .stMarkdown p {
+        margin: 0.25rem 0;
+        line-height: 1.5;
+    }
+
+    div[data-testid="stChatMessage"] .stMarkdown code {
+        background-color: rgba(128, 128, 128, 0.15);
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+        font-size: 0.9em;
+    }
+
+    div[data-testid="stChatMessage"] .stMarkdown pre {
+        background-color: rgba(128, 128, 128, 0.1);
         border: 1px solid rgba(128, 128, 128, 0.2);
-        border-radius: 12px;
-        padding: 1rem 1.25rem;
+        border-radius: 8px;
+        padding: 0.75rem;
+        overflow-x: auto;
+        margin: 0.5rem 0;
+    }
+
+    div[data-testid="stChatMessage"] .stMarkdown pre code {
+        background-color: transparent;
+        padding: 0;
+    }
+
+    div[data-testid="stChatMessage"] .stMarkdown ul,
+    div[data-testid="stChatMessage"] .stMarkdown ol {
+        margin: 0.25rem 0;
+        padding-left: 1.25rem;
+    }
+
+    div[data-testid="stChatMessage"] .stMarkdown h1,
+    div[data-testid="stChatMessage"] .stMarkdown h2,
+    div[data-testid="stChatMessage"] .stMarkdown h3 {
+        margin-top: 0.75rem;
+        margin-bottom: 0.25rem;
         color: var(--text-color);
     }
 
-    div[data-testid="stChatMessage"][data-testid="assistant-message"] > div:first-child > div:first-child {
-        background: transparent;
-        padding: 0 1rem;
+    div[data-testid="stChatMessage"] .stMarkdown blockquote {
+        border-left: 3px solid rgba(128, 128, 128, 0.3);
+        padding-left: 0.75rem;
+        margin: 0.5rem 0;
         color: var(--text-color);
+        opacity: 0.9;
+    }
+
+    div[data-testid="stChatMessage"] .stMarkdown table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 0.5rem 0;
+    }
+
+    div[data-testid="stChatMessage"] .stMarkdown table th,
+    div[data-testid="stChatMessage"] .stMarkdown table td {
+        border: 1px solid rgba(128, 128, 128, 0.2);
+        padding: 0.5rem;
+    }
+
+    div[data-testid="stChatMessage"] .stMarkdown table th {
+        background-color: rgba(128, 128, 128, 0.1);
     }
 
     .stChatInput {
@@ -218,20 +355,121 @@ st.markdown("""
     div[data-testid="stChatInput"] {
         border-radius: 20px !important;
         background-color: var(--background-color) !important;
-        border: 1px solid rgba(128, 128, 128, 0.3) !important;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+        border: none !important;
+        box-shadow: none !important;
         padding: 2px !important;
+    }
+
+    div[data-testid="stChatInput"],
+    div[data-testid="stChatInput"] * {
+        border-color: rgba(128, 128, 128, 0.3) !important;
+    }
+
+    div[data-testid="stChatInput"]::before,
+    div[data-testid="stChatInput"]::after {
+        display: none !important;
     }
     
     div[data-testid="stChatInput"] textarea {
         border: none !important;
         padding: 0.5rem !important;
         background-color: transparent !important;
+        outline: none !important;
+    }
+
+    div[data-testid="stChatInput"] textarea:focus {
+        outline: none !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+
+    div[data-testid="stChatInput"] textarea:focus-visible {
+        outline: none !important;
+        border: none !important;
+        box-shadow: none !important;
     }
     
     div[data-testid="stChatInput"]:focus-within {
-        border-color: var(--primary-color) !important;
-        box-shadow: 0 0 0 1px var(--primary-color) !important;
+        border: none !important;
+        box-shadow: none !important;
+        outline: none !important;
+    }
+
+    div[data-testid="stChatInput"]:focus-within,
+    div[data-testid="stChatInput"]:focus-within * {
+        border-color: rgba(128, 128, 128, 0.3) !important;
+        outline: none !important;
+        box-shadow: none !important;
+    }
+
+    div[data-testid="stChatInput"]:focus-within textarea {
+        border: none !important;
+    }
+
+    div[data-testid="stChatInput"] *:focus {
+        outline: none !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    div[data-testid="stChatInput"] *:focus-visible {
+        outline: none !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    div[data-testid="stChatInput"] input:focus,
+    div[data-testid="stChatInput"] textarea:focus,
+    div[data-testid="stChatInput"] input:focus-visible,
+    div[data-testid="stChatInput"] textarea:focus-visible {
+        outline: none !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+
+    div[data-testid="stChatInput"],
+    div[data-testid="stChatInput"] *,
+    div[data-testid="stChatInput"]:focus-within,
+    div[data-testid="stChatInput"]:focus-within * {
+        border-color: rgba(128, 128, 128, 0.3) !important;
+        outline-color: rgba(128, 128, 128, 0.3) !important;
+    }
+
+    div[data-testid="stChatInput"] [style*="red"],
+    div[data-testid="stChatInput"] [style*="Red"],
+    div[data-testid="stChatInput"] [style*="RED"],
+    div[data-testid="stChatInput"] [style*="#ff"],
+    div[data-testid="stChatInput"] [style*="#FF"],
+    div[data-testid="stChatInput"] [style*="rgb(255"],
+    div[data-testid="stChatInput"] [style*="rgba(255"] {
+        border-color: rgba(128, 128, 128, 0.3) !important;
+    }
+
+    div[data-testid="stChatInput"],
+    div[data-testid="stChatInput"] > *,
+    div[data-testid="stChatInput"] > * > * {
+        border-left-color: rgba(128, 128, 128, 0.3) !important;
+        border-right-color: rgba(128, 128, 128, 0.3) !important;
+        border-top-color: rgba(128, 128, 128, 0.3) !important;
+        border-bottom-color: rgba(128, 128, 128, 0.3) !important;
+    }
+    
+    [data-testid="stAppViewContainer"] {
+        overflow-anchor: none !important;
+    }
+    
+    [data-testid="stVerticalBlock"] {
+        scroll-behavior: auto !important;
+        overflow-anchor: none !important;
+    }
+    
+    .main .block-container {
+        scroll-behavior: auto !important;
+        overflow-anchor: none !important;
+    }
+    
+    section[data-testid="stMain"] {
+        overflow-anchor: none !important;
     }
 
     section[data-testid="stSidebar"] {
@@ -239,36 +477,99 @@ st.markdown("""
         border-right: 1px solid rgba(128, 128, 128, 0.1);
     }
 
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] [data-baseweb="heading"],
+    section[data-testid="stSidebar"] .stMarkdown h1,
+    section[data-testid="stSidebar"] .stMarkdown h2,
+    section[data-testid="stSidebar"] .stMarkdown h3 {
+        background: linear-gradient(135deg, #22C55E 0%, #10B981 15%, #EC4899 35%, #E91E63 50%, #DB2777 65%, #A855F7 85%, #9333EA 100%) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        background-clip: text !important;
+        background-size: 200% 200% !important;
+        animation: gradient-shift 3s ease infinite !important;
+        color: transparent !important;
+    }
+
     .streamlit-expanderHeader {
-        background: linear-gradient(90deg, rgba(128, 128, 128, 0.05) 0%, rgba(128, 128, 128, 0.01) 100%);
+        background: rgba(128, 128, 128, 0.1) !important;
         border-radius: 8px !important;
-        border: 1px solid rgba(128, 128, 128, 0.15);
-        color: var(--text-color);
-        transition: border-color 0.2s, background 0.2s;
+        border: 1px solid rgba(128, 128, 128, 0.2) !important;
+        color: var(--text-color) !important;
+        transition: all 0.2s ease !important;
+        padding: 0.75rem 1rem !important;
+        margin-bottom: 0.5rem !important;
+        cursor: pointer !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.5rem !important;
+    }
+
+    .streamlit-expanderHeader::before {
+        content: '▶' !important;
+        font-size: 0.7rem !important;
+        color: rgba(255, 255, 255, 0.7) !important;
+        transition: transform 0.2s ease !important;
+        margin-right: 0.25rem !important;
+    }
+
+    .streamlit-expanderHeader[aria-expanded="true"]::before {
+        transform: rotate(90deg) !important;
     }
     
     .streamlit-expanderHeader:hover {
-        border-color: var(--primary-color);
-        background: linear-gradient(90deg, rgba(var(--primary-color-rgb), 0.05) 0%, transparent 100%);
+        border-color: rgba(128, 128, 128, 0.3) !important;
+        background: rgba(128, 128, 128, 0.15) !important;
+        transform: translateX(2px) !important;
     }
     
     .streamlit-expanderContent {
-        border: none;
-        padding-left: 0.5rem;
-        padding-top: 0.5rem;
+        border: none !important;
+        padding: 0.5rem !important;
+        background: transparent !important;
+        border-radius: 8px !important;
+        margin-top: 0.5rem !important;
+    }
+
+    .streamlit-expanderHeader[aria-expanded="true"] {
+        background: rgba(128, 128, 128, 0.15) !important;
     }
 
     .status-row {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 10px 0;
-        border-bottom: 1px solid rgba(128, 128, 128, 0.1);
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
         font-size: 0.9rem;
-        color: var(--text-color);
+        color: #1f77b4;
+        background: rgba(19, 124, 189, 0.08);
+        margin-bottom: 0.5rem;
+        border: 1px solid rgba(19, 124, 189, 0.15);
     }
     
-    .status-row:last-child { border-bottom: none; }
+    .streamlit-expanderContent .status-row:last-of-type {
+        margin-bottom: 0.5rem;
+    }
+
+    .status-row .badge-active {
+        background: rgba(34, 197, 94, 0.2);
+        color: #22c55e;
+    }
+
+    .status-row:has(.badge-active) {
+        background: rgba(34, 197, 94, 0.1);
+        color: #22c55e;
+        border-color: rgba(34, 197, 94, 0.2);
+    }
+
+    .status-row:has(.badge-error) {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+        border-color: rgba(239, 68, 68, 0.2);
+    }
 
     .badge {
         padding: 2px 8px;
@@ -279,19 +580,19 @@ st.markdown("""
     }
     
     .badge-neutral {
-        background-color: rgba(128, 128, 128, 0.15);
-        color: var(--text-color);
-        border: 1px solid rgba(128, 128, 128, 0.2);
+        background-color: rgba(19, 124, 189, 0.15);
+        color: #1f77b4;
+        border: 1px solid rgba(19, 124, 189, 0.2);
     }
     
     .badge-active {
-        background-color: rgba(34, 197, 94, 0.1);
+        background-color: rgba(34, 197, 94, 0.15);
         color: #22c55e;
         border: 1px solid rgba(34, 197, 94, 0.2);
     }
 
     .badge-error {
-        background-color: rgba(239, 68, 68, 0.1);
+        background-color: rgba(239, 68, 68, 0.15);
         color: #ef4444;
         border: 1px solid rgba(239, 68, 68, 0.2);
     }
@@ -314,32 +615,155 @@ st.markdown("""
     }
 
     .stButton > button {
-        background: linear-gradient(135deg, var(--primary-color) 0%, #FF9900 100%);
-        color: white !important;
-        border: none;
-        border-radius: 8px;
-        padding: 0.5rem 1rem;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        width: 100%;
+        background: rgba(19, 124, 189, 0.1) !important;
+        color: #1f77b4 !important;
+        border: 1px solid rgba(19, 124, 189, 0.2) !important;
+        border-radius: 8px !important;
+        padding: 0.5rem 1rem !important;
+        font-weight: 500 !important;
+        transition: all 0.2s ease !important;
+        box-shadow: none !important;
+        width: 100% !important;
     }
     
     .stButton > button:hover {
-        box-shadow: 0 6px 12px rgba(0,0,0,0.2);
-        transform: translateY(-1px);
-        filter: brightness(1.1);
-        border-color: transparent;
+        background: rgba(19, 124, 189, 0.15) !important;
+        border-color: rgba(19, 124, 189, 0.3) !important;
+        transform: translateY(-1px) !important;
+        color: #1f77b4 !important;
+        box-shadow: 0 2px 4px rgba(19, 124, 189, 0.1) !important;
     }
     
     .stButton > button:active {
-        transform: translateY(0);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transform: translateY(0) !important;
+        background: rgba(19, 124, 189, 0.12) !important;
     }
 
     footer { visibility: hidden; }
     #MainMenu { visibility: visible; }
     </style>
+    <script>
+    (function() {
+        let lastScrollTop = 0;
+        let isUserScrolling = false;
+        let scrollTimeout;
+        let preventAutoScroll = false;
+        
+        function saveScrollPosition() {
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            sessionStorage.setItem('streamlitScrollPosition', scrollTop);
+            lastScrollTop = scrollTop;
+        }
+        
+        window.addEventListener('scroll', function() {
+            const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
+            const scrollDiff = Math.abs(currentScroll - lastScrollTop);
+            
+            if (scrollDiff > 5) {
+                isUserScrolling = true;
+                preventAutoScroll = true;
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(function() {
+                    isUserScrolling = false;
+                    preventAutoScroll = false;
+                }, 500);
+                saveScrollPosition();
+            }
+            lastScrollTop = currentScroll;
+        }, { passive: true });
+        
+        const restoreScroll = function() {
+            if (preventAutoScroll || isUserScrolling) {
+                return;
+            }
+            const savedPosition = sessionStorage.getItem('streamlitScrollPosition');
+            if (savedPosition) {
+                const pos = parseInt(savedPosition);
+                const currentPos = window.pageYOffset || document.documentElement.scrollTop;
+                if (Math.abs(pos - currentPos) > 10) {
+                    window.scrollTo({
+                        top: pos,
+                        behavior: 'auto'
+                    });
+                }
+            }
+        };
+        
+        window.addEventListener('load', restoreScroll);
+        
+        const observer = new MutationObserver(function() {
+            if (!preventAutoScroll && !isUserScrolling) {
+                setTimeout(restoreScroll, 10);
+            }
+        });
+        
+        if (document.body) {
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true,
+                attributes: false
+            });
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            if (document.body) {
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true,
+                    attributes: false
+                });
+            }
+        });
+
+        function markAgentStatusExpander() {
+            const headers = document.querySelectorAll('.streamlit-expanderHeader');
+            headers.forEach(header => {
+                if (header.textContent.includes('🤖') || header.textContent.includes('Agent Status')) {
+                    header.classList.add('agent-status-header');
+                }
+            });
+        }
+
+        function markStatusRows() {
+            const statusRows = document.querySelectorAll('.status-row');
+            statusRows.forEach(row => {
+                const badge = row.querySelector('.badge-active');
+                if (badge) {
+                    row.style.background = 'rgba(20, 83, 45, 0.4)';
+                    row.style.color = '#4ade80';
+                    row.style.borderColor = 'rgba(34, 197, 94, 0.2)';
+                }
+            });
+        }
+
+        function applySidebarHeaderGradient() {
+            const sidebar = document.querySelector('section[data-testid="stSidebar"]');
+            if (sidebar) {
+                const headers = sidebar.querySelectorAll('h1, h2, h3, [data-baseweb="heading"]');
+                headers.forEach(header => {
+                    if (header.textContent.includes('Control Panel')) {
+                        header.style.background = 'linear-gradient(135deg, #22C55E 0%, #10B981 15%, #EC4899 35%, #E91E63 50%, #DB2777 65%, #A855F7 85%, #9333EA 100%)';
+                        header.style.webkitBackgroundClip = 'text';
+                        header.style.webkitTextFillColor = 'transparent';
+                        header.style.backgroundClip = 'text';
+                        header.style.backgroundSize = '200% 200%';
+                        header.style.animation = 'gradient-shift 3s ease infinite';
+                        header.style.color = 'transparent';
+                    }
+                });
+            }
+        }
+
+        markAgentStatusExpander();
+        markStatusRows();
+        applySidebarHeaderGradient();
+        setInterval(() => {
+            markAgentStatusExpander();
+            markStatusRows();
+            applySidebarHeaderGradient();
+        }, 500);
+    })();
+    </script>
 """, unsafe_allow_html=True)
 
 st.markdown("""
@@ -375,7 +799,11 @@ def process_user_input(input_text):
         else:
             try:
                 thinking_placeholder.empty()
-                response_text = st.write_stream(stream_agent_response(input_text))
+                response_container = st.empty()
+                response_text = ""
+                for chunk in stream_agent_response(input_text):
+                    response_text += chunk
+                    response_container.markdown(response_text)
                 st.session_state.messages.append({"role": "assistant", "content": response_text})
             except Exception as e:
                 thinking_placeholder.empty()
@@ -400,11 +828,13 @@ if prompt := st.chat_input("Ask me to deploy resources, check logs, or analyze c
 with st.sidebar:
     st.header("Control Panel")
     
-    with st.expander("ℹ️ About", expanded=True):
+    with st.expander("🚀 Capabilities", expanded=True):
         st.markdown("""
-            I'm your **AWS CloudOps Assistant**, powered by **Bedrock FMs**. 
-            I can help you safely manage your AWS environment through natural language.
-        """)
+            <div class="status-row"><span>☁️ Infrastructure</span><span class="badge badge-neutral">IaC</span></div>
+            <div class="status-row"><span>🛡️ Security Audit</span><span class="badge badge-neutral">IAM</span></div>
+            <div class="status-row"><span>💰 Cost Analyzer</span><span class="badge badge-neutral">FinOps</span></div>
+            <div class="status-row"><span>📝 Log Analysis</span><span class="badge badge-neutral">CloudWatch</span></div>
+        """, unsafe_allow_html=True)
     
     with st.expander("⚡ Quick Start", expanded=True):
         st.markdown("Try one of these:")
@@ -418,21 +848,13 @@ with st.sidebar:
             st.session_state.pending_prompt = "Analyze my AWS costs for the last month"
             st.rerun()
 
-    with st.expander("🚀 Capabilities", expanded=False):
-        st.markdown("""
-            <div class="status-row"><span>☁️ Infrastructure</span><span class="badge badge-neutral">IaC</span></div>
-            <div class="status-row"><span>🛡️ Security Audit</span><span class="badge badge-neutral">IAM</span></div>
-            <div class="status-row"><span>💰 Cost Analyzer</span><span class="badge badge-neutral">FinOps</span></div>
-            <div class="status-row"><span>📝 Log Analysis</span><span class="badge badge-neutral">CloudWatch</span></div>
-        """, unsafe_allow_html=True)
-
     status = get_agent_status()
     is_healthy = status.get("status") == "healthy" and status.get("agent_initialized")
     
     gw_badge = "badge-active" if is_healthy else "badge-error"
     gw_text = "ONLINE" if is_healthy else "OFFLINE"
 
-    with st.expander("🤖 Agent Status", expanded=False):
+    with st.expander("🤖 Agent Status", expanded=True):
         st.markdown(f"""
             <div class="status-row">
                 <span>connection</span>
@@ -448,12 +870,19 @@ with st.sidebar:
             </div>
             <div class="status-row">
                 <span>Model</span>
-                <span style="opacity: 0.6; font-size: 0.75rem;">{BEDROCK_MODEL_ID}</span>
+                <span class="badge badge-neutral">{get_model_name(BEDROCK_MODEL_ID)}</span>
             </div>
         """, unsafe_allow_html=True)
         
+        st.markdown("<div style='margin-top: 0.75rem;'></div>", unsafe_allow_html=True)
         if st.button("Ping Agent"):
             st.rerun()
+
+    with st.expander("ℹ️ About", expanded=False):
+        st.markdown("""
+            I'm your **AWS CloudOps Assistant**, powered by **Bedrock FMs**. 
+            I can help you safely manage your AWS environment through natural language.
+        """)
 
     st.markdown("---")
     st.caption(f"{STRANDS_AGENT_VERSION} • Connected to {AGENT_RUNTIME}")
