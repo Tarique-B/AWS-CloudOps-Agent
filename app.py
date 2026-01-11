@@ -6,6 +6,8 @@ import streamlit as st
 from requests.exceptions import ConnectionError, Timeout
 import boto3
 import uuid
+import random
+import string
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
@@ -29,9 +31,47 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+def get_agent_runtime_info():
+    if AGENT_RUNTIME != "Agentcore" or not AGENTCORE_RUNTIME_ARN:
+        return None
+    
+    try:
+        client = boto3.client('bedrock-agentcore-control', region_name=os.getenv("AWS_REGION", "us-east-1"))
+        
+        runtime_id = AGENTCORE_RUNTIME_ARN.split('/')[-1] if '/' in AGENTCORE_RUNTIME_ARN else AGENTCORE_RUNTIME_ARN.split(':')[-1] if ':' in AGENTCORE_RUNTIME_ARN else AGENTCORE_RUNTIME_ARN
+        
+        response = client.get_agent_runtime(agentRuntimeId=runtime_id)
+        
+        env_vars = response.get('environmentVariables', {})
+        memory_id = env_vars.get('AGENTCORE_LTM_MEMORY_ID', '')
+        memory_region = env_vars.get('AGENTCORE_LTM_MEMORY_REGION', '')
+        model_id = env_vars.get('BEDROCK_MODEL_ID', '')
+        agent_version = env_vars.get('STRANDS_AGENT_VERSION', '')
+        
+        return {
+            "status": response.get('status', 'UNKNOWN'),
+            "memory_id": memory_id,
+            "memory_region": memory_region,
+            "model_id": model_id,
+            "agent_version": agent_version,
+            "runtime_name": response.get('agentRuntimeName', ''),
+            "runtime_version": response.get('agentRuntimeVersion', '')
+        }
+    except Exception as e:
+        logger.error(f"Failed to get agent runtime info: {e}")
+        return None
+
 def get_agent_status():
     if AGENT_RUNTIME == "Agentcore":
         try:
+            runtime_info = get_agent_runtime_info()
+            if runtime_info:
+                return {
+                    "status": "healthy" if runtime_info.get("status") == "READY" else "unhealthy",
+                    "model_id": runtime_info.get("model_id", "unknown"),
+                    "agent_initialized": True,
+                    "runtime_info": runtime_info
+                }
             return {"status": "healthy", "model_id": "unknown", "agent_initialized": True}
         except Exception:
             return {"status": "unhealthy", "model_id": "unknown", "agent_initialized": False}
@@ -44,12 +84,24 @@ def get_agent_status():
         except Exception:
             return {"status": "unhealthy", "model_id": "unknown", "agent_initialized": False}
 
-def stream_agent_response(prompt):
+def stream_agent_response(prompt, session_id=None, actor_id=None):
     if AGENT_RUNTIME == "Agentcore":
         try:
             client = boto3.client('bedrock-agentcore', region_name=os.getenv("AWS_REGION", "us-east-1"))
-            payload = json.dumps({"prompt": prompt})
-            runtime_session_id = str(uuid.uuid4())
+            
+            payload_data = {"prompt": prompt}
+            if session_id:
+                payload_data["session_id"] = session_id
+            if actor_id:
+                payload_data["actor_id"] = actor_id
+            
+            payload = json.dumps(payload_data)
+            
+            if session_id and len(session_id) >= 33:
+                runtime_session_id = session_id
+            else:
+                session_uuid = uuid.uuid4().hex
+                runtime_session_id = f"session_{session_uuid}_{uuid.uuid4().hex[:10]}"
             
             response = client.invoke_agent_runtime(
                 agentRuntimeArn=AGENTCORE_RUNTIME_ARN,
@@ -75,9 +127,15 @@ def stream_agent_response(prompt):
             yield f"Agentcore runtime error: {str(e)}"
     else:
         try:
+            request_data = {"prompt": prompt, "stream": True}
+            if session_id:
+                request_data["session_id"] = session_id
+            if actor_id:
+                request_data["actor_id"] = actor_id
+            
             response = requests.post(
                 f"{API_BASE_URL}/invocations",
-                json={"prompt": prompt, "stream": True},
+                json=request_data,
                 stream=True,
                 timeout=300
             )
@@ -101,12 +159,24 @@ def stream_agent_response(prompt):
         except Exception as e:
             yield f"Connection issue: {str(e)}"
 
-def invoke_agent_non_streaming(prompt):
+def invoke_agent_non_streaming(prompt, session_id=None, actor_id=None):
     if AGENT_RUNTIME == "Agentcore":
         try:
             client = boto3.client('bedrock-agentcore', region_name=os.getenv("AWS_REGION", "us-east-1"))
-            payload = json.dumps({"prompt": prompt})
-            runtime_session_id = str(uuid.uuid4())
+            
+            payload_data = {"prompt": prompt}
+            if session_id:
+                payload_data["session_id"] = session_id
+            if actor_id:
+                payload_data["actor_id"] = actor_id
+            
+            payload = json.dumps(payload_data)
+            
+            if session_id and len(session_id) >= 33:
+                runtime_session_id = session_id
+            else:
+                session_uuid = uuid.uuid4().hex
+                runtime_session_id = f"session_{session_uuid}_{uuid.uuid4().hex[:10]}"
             
             response = client.invoke_agent_runtime(
                 agentRuntimeArn=AGENTCORE_RUNTIME_ARN,
@@ -121,9 +191,15 @@ def invoke_agent_non_streaming(prompt):
             return f"Agentcore runtime error: {str(e)}"
     else:
         try:
+            request_data = {"prompt": prompt, "stream": False}
+            if session_id:
+                request_data["session_id"] = session_id
+            if actor_id:
+                request_data["actor_id"] = actor_id
+            
             response = requests.post(
                 f"{API_BASE_URL}/invocations",
-                json={"prompt": prompt, "stream": False},
+                json=request_data,
                 timeout=300
             )
             if response.status_code == 200:
@@ -584,6 +660,7 @@ st.markdown("""
         background: rgba(236, 72, 153, 0.06) !important;
         border-color: rgba(236, 72, 153, 0.18) !important;
     }
+    
 
     .status-row {
         display: flex;
@@ -888,6 +965,7 @@ st.markdown("""
         markAgentStatusExpander();
         markStatusRows();
         applySidebarHeaderGradient();
+        
         setInterval(() => {
             markAgentStatusExpander();
             markStatusRows();
@@ -904,6 +982,13 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
+if "session_id" not in st.session_state:
+    session_uuid = uuid.uuid4().hex
+    st.session_state.session_id = f"session_{session_uuid}_{uuid.uuid4().hex[:10]}"
+
+if "actor_id" not in st.session_state:
+    st.session_state.actor_id = f"tarique_{uuid.uuid4().hex[:12]}"
+
 if "messages" not in st.session_state:
     st.session_state.messages = [{
         "role": "assistant",
@@ -918,6 +1003,7 @@ if "processing" not in st.session_state:
 
 if "pending_user_input" not in st.session_state:
     st.session_state.pending_user_input = None
+
 
 def process_user_input(input_text):
     st.session_state.messages.append({"role": "user", "content": input_text})
@@ -954,7 +1040,7 @@ for i, msg in enumerate(st.session_state.messages):
                     try:
                         response_text = ""
                         first_chunk = True
-                        for chunk in stream_agent_response(user_input):
+                        for chunk in stream_agent_response(user_input, st.session_state.session_id, st.session_state.actor_id):
                             if first_chunk:
                                 message_placeholder.empty()
                                 first_chunk = False
@@ -963,7 +1049,7 @@ for i, msg in enumerate(st.session_state.messages):
                         st.session_state.messages[i] = {"role": "assistant", "content": response_text}
                     except Exception as e:
                         message_placeholder.empty()
-                        response_text = invoke_agent_non_streaming(user_input)
+                        response_text = invoke_agent_non_streaming(user_input, st.session_state.session_id, st.session_state.actor_id)
                         message_placeholder.markdown(response_text)
                         st.session_state.messages[i] = {"role": "assistant", "content": response_text}
         elif msg["content"] == "LOADING":
@@ -989,7 +1075,71 @@ if prompt := st.chat_input("Ask me to deploy resources, check logs, or analyze c
 with st.sidebar:
     st.header("Control Panel")
     
-    with st.expander("🚀 Capabilities", expanded=True):
+    with st.expander("📋 Session Info", expanded=False):
+        current_actor_id = st.session_state.get("actor_id") or ""
+        
+        st.markdown("""
+            <div class="status-row">
+                <span>Username</span>
+                <span class="badge badge-neutral">{actor_id}</span>
+            </div>
+        """.format(actor_id=current_actor_id if current_actor_id else "Not set"), unsafe_allow_html=True)
+        
+        username = st.text_input(
+            "Username",
+            value=current_actor_id,
+            key="actor_id_input",
+            placeholder="Enter username (used as Actor ID)",
+            label_visibility="collapsed"
+        )
+        
+        if st.button("Update Username", use_container_width=True):
+            if username and username.strip():
+                st.session_state.actor_id = username.strip()
+                if "actor_id_input" in st.session_state:
+                    del st.session_state.actor_id_input
+                st.success(f"Username updated to: {username.strip()}")
+            else:
+                st.session_state.actor_id = f"user_{uuid.uuid4().hex[:12]}"
+                if "actor_id_input" in st.session_state:
+                    del st.session_state.actor_id_input
+                st.info("Username reset to default")
+            st.rerun()
+        
+        session_id_display = st.session_state.session_id
+        session_id_short = "SESSION_" + session_id_display[8:13] if len(session_id_display) > 13 else session_id_display
+        
+        st.markdown(f"""
+            <div class="status-row">
+                <span>Session ID</span>
+                <span class="badge badge-neutral" title="{session_id_display}">{session_id_short}</span>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        if AGENT_RUNTIME == "Agentcore":
+            runtime_info = get_agent_runtime_info()
+            memory_enabled = "No"
+            if runtime_info and runtime_info.get("memory_id"):
+                memory_enabled = "Yes"
+            
+            st.markdown(f"""
+                <div class="status-row">
+                    <span>Memory</span>
+                    <span class="badge badge-neutral">{memory_enabled}</span>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        if st.button("🔄 New Session", use_container_width=True):
+            session_uuid = uuid.uuid4().hex
+            st.session_state.session_id = f"session_{session_uuid}_{uuid.uuid4().hex[:10]}"
+            st.session_state.messages = [{
+                "role": "assistant",
+                "content": "New session started. How can I assist you?"
+            }]
+            st.success("New session created!")
+            st.rerun()
+    
+    with st.expander("🚀 Capabilities", expanded=False):
         st.markdown("""
             <div class="status-row"><span>☁️ Infrastructure</span><span class="badge badge-neutral">IaC</span></div>
             <div class="status-row"><span>🛡️ Security Audit</span><span class="badge badge-neutral">IAM</span></div>
@@ -997,7 +1147,7 @@ with st.sidebar:
             <div class="status-row"><span>📝 Log Analysis</span><span class="badge badge-neutral">CloudWatch</span></div>
         """, unsafe_allow_html=True)
     
-    with st.expander("⚡ Quick Start", expanded=True):
+    with st.expander("⚡ Quick Start", expanded=False):
         st.markdown("Try one of these:")
         if st.button("List all S3 buckets"):
             st.session_state.pending_prompt = "List all S3 buckets in my account"
@@ -1014,14 +1164,45 @@ with st.sidebar:
     
     gw_badge = "badge-active" if is_healthy else "badge-error"
     gw_text = "ONLINE" if is_healthy else "OFFLINE"
+    
+    runtime_info = status.get("runtime_info") if AGENT_RUNTIME == "Agentcore" else None
+    memory_id_display = ""
+    agent_version_display = ""
+    
+    if runtime_info:
+        memory_id = runtime_info.get("memory_id", "")
+        if memory_id and len(memory_id) > 11:
+            memory_id_display = f"{memory_id[:8]}...{memory_id[-3:]}"
+        elif memory_id:
+            memory_id_display = memory_id
+        
+        agent_version_display = runtime_info.get("agent_version", "")
 
-    with st.expander("🤖 Agent Status", expanded=True):
+    with st.expander("🤖 Agent Status", expanded=False):
         endpoint_row = f"""
             <div class="status-row">
                 <span>Endpoint</span>
                 <span class="badge badge-neutral">{AGENTCORE_RUNTIME_ENDPOINT}</span>
             </div>
         """ if AGENT_RUNTIME == "Agentcore" else ""
+        
+        memory_row = ""
+        if AGENT_RUNTIME == "Agentcore" and runtime_info and memory_id_display:
+            memory_row = f"""
+            <div class="status-row">
+                <span>AgentCore Memory</span>
+                <span class="badge badge-neutral" title="{runtime_info.get('memory_id', '')}">{memory_id_display}</span>
+            </div>
+            """
+        
+        version_row = ""
+        if agent_version_display:
+            version_row = f"""
+            <div class="status-row">
+                <span>Agent Version</span>
+                <span class="badge badge-neutral">{agent_version_display}</span>
+            </div>
+            """
         
         st.markdown(f"""
             <div class="status-row">
@@ -1033,13 +1214,15 @@ with st.sidebar:
                 <span class="badge badge-neutral">{AGENT_RUNTIME}</span>
             </div>
             {endpoint_row}
+            {memory_row}
+            {version_row}
             <div class="status-row">
                 <span>Latency</span>
                 <span class="badge badge-neutral">~24ms</span>
             </div>
             <div class="status-row">
                 <span>Model</span>
-                <span class="badge badge-neutral">{get_model_name(BEDROCK_MODEL_ID)}</span>
+                <span class="badge badge-neutral">{get_model_name(runtime_info.get('model_id', BEDROCK_MODEL_ID) if runtime_info else BEDROCK_MODEL_ID)}</span>
             </div>
         """, unsafe_allow_html=True)
         
@@ -1049,7 +1232,7 @@ with st.sidebar:
 
     with st.expander("ℹ️ About", expanded=False):
         st.markdown("""
-            I'm your **AWS CloudOps Assistant**, powered by **Bedrock FMs**. 
+            I'm your **AWS CloudOps Assistant**, powered by **Bedrock FMs and Bedrock AgentCore**. 
             I can help you safely manage your AWS environment through natural language.
         """)
 
@@ -1066,6 +1249,11 @@ with st.sidebar:
         st.rerun()
     
     st.markdown("<div style='margin-top: 3rem;'></div>", unsafe_allow_html=True)
+    
+    runtime_info = status.get("runtime_info") if AGENT_RUNTIME == "Agentcore" else None
+    agent_version_display = runtime_info.get("agent_version") if runtime_info and runtime_info.get("agent_version") else STRANDS_AGENT_VERSION
+    runtime_display = "Agentcore" if AGENT_RUNTIME == "Agentcore" else AGENT_RUNTIME
+    
     st.markdown(f"""
         <div style="
             text-align: center;
@@ -1075,6 +1263,6 @@ with st.sidebar:
             border-top: 1px solid rgba(34, 197, 94, 0.1);
             margin-top: 1rem;
         ">
-            {STRANDS_AGENT_VERSION} • Connected to {AGENT_RUNTIME}
+            {agent_version_display} • Connected to {runtime_display}
         </div>
     """, unsafe_allow_html=True)
