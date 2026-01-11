@@ -7,6 +7,7 @@ from fastapi.responses import StreamingResponse
 from strands import Agent
 from strands_tools import use_aws, current_time
 from strands.models.bedrock import BedrockModel
+from strands.agent.conversation_manager import SlidingWindowConversationManager
 from bedrock_agentcore.memory import MemoryClient
 from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig, RetrievalConfig
 from bedrock_agentcore.memory.integrations.strands.session_manager import AgentCoreMemorySessionManager
@@ -23,6 +24,9 @@ logger = logging.getLogger(__name__)
 BEDROCK_MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-sonnet-20240229-v1:0")
 BEDROCK_MODEL_REGION = os.getenv("BEDROCK_MODEL_REGION", "us-east-1")
 MEMORY_ID = os.getenv("AGENTCORE_LTM_MEMORY_ID")
+MEMORY_REGION = os.getenv("AGENTCORE_LTM_MEMORY_REGION", "us-east-1")
+SLIDING_WINDOW_SIZE = os.getenv("SLIDING_WINDOW_SIZE", 20)
+STRANDS_AGENT_VERSION = os.getenv("STRANDS_AGENT_VERSION", "v1.0.0")
 
 logger.info(f"Using Bedrock Model ID: {BEDROCK_MODEL_ID} in region: {BEDROCK_MODEL_REGION}")
 
@@ -89,6 +93,8 @@ For general AWS questions and guidance:
 Be helpful, professional, and maintain strict focus on AWS cloud operations."""
 
     session_manager = None
+    conversation_manager = None
+    
     if MEMORY_ID and session_id and actor_id:
         try:
             logger.info(f"Initializing AgentCore Memory with ID: {MEMORY_ID}")
@@ -113,19 +119,24 @@ Be helpful, professional, and maintain strict focus on AWS cloud operations."""
             )
             session_manager = AgentCoreMemorySessionManager(
                 agentcore_memory_config=agentcore_memory_config,
-                region_name=BEDROCK_MODEL_REGION
+                region_name=MEMORY_REGION
             )
             logger.info("Memory session manager initialized successfully")
+            
+            conversation_manager = SlidingWindowConversationManager(window_size=SLIDING_WINDOW_SIZE)
+            logger.info("SlidingWindowConversationManager initialized.")
         except Exception as e:
             logger.error(f"Failed to initialize memory session manager: {e}")
-            # Fallback to no memory if initialization fails
+            session_manager = None
+            conversation_manager = None
 
     try:
         agent = Agent(
             model=BedrockModel(model_id=BEDROCK_MODEL_ID, region=BEDROCK_MODEL_REGION),
             system_prompt=system_prompt,
             tools=[use_aws, current_time],
-            session_manager=session_manager
+            session_manager=session_manager,
+            conversation_manager=conversation_manager
         )
         logger.info("AWS CloudOps Assistant agent created successfully")
         return agent
@@ -196,6 +207,7 @@ async def invoke_agent(request: InvocationRequest):
     logger.info(f"Invocation request received: stream={request.stream}, prompt_length={len(request.prompt)}, session_id={request.session_id}")
     
     if request.session_id and request.actor_id and MEMORY_ID:
+        logger.info(f"Session ID: {request.session_id}, Actor ID: {request.actor_id}")
         logger.info("Creating session-specific agent with memory")
         current_agent = create_aws_assistant_agent(request.session_id, request.actor_id)
     else:
