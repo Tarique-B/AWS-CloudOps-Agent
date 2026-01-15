@@ -55,7 +55,7 @@ memory_strategies = {
 }
 
 # ECR configuration
-ecr_repository_names     = ["cloudOps_agent", "cloudOps_webapp"]
+ecr_repository_names     = ["cloudops_agent", "cloudops_webapp"]
 ecr_image_tag_mutability = "MUTABLE"
 ecr_scan_on_push         = false
 
