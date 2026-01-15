@@ -61,7 +61,7 @@ module "alb" {
 }
 
 module "ecs" {
-  source = "git::https://github.com/Tarique-B-DevOps/Terraform-AWS-ECR-ECS.git//modules/ecs?ref=main"
+  source = "git::https://github.com/Tarique-B-DevOps/Terraform-AWS-ECR-ECS.git//modules/ecs?ref=dev"
 
   name_prefix      = "${local.name_prefix}_Webapp"
   cluster_name     = "${local.name_prefix}_Webapp"
