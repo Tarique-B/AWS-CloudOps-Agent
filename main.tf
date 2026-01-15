@@ -70,6 +70,9 @@ module "ecs" {
   subnet_ids       = module.vpc.public_subnet_ids
   assign_public_ip = var.ecs_assign_public_ip
 
+  runtime_platform_operating_system_family = var.runtime_platform_operating_system_family
+  runtime_platform_cpu_architecture        = var.runtime_platform_cpu_architecture
+
   container_name  = "${local.name_prefix}_Webapp"
   container_image = module.ecr[1].repository_url
   container_port  = var.container_port

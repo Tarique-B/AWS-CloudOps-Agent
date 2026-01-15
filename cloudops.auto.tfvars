@@ -85,9 +85,11 @@ health_check_path              = "/"
 container_port                 = 80
 
 # ECS configuration
-container_image = "public.ecr.aws/nginx/nginx:latest"
-launch_type     = "FARGATE"
-desired_count   = 1
+runtime_platform_operating_system_family = "LINUX"
+runtime_platform_cpu_architecture        = "ARM64"
+container_image                          = "public.ecr.aws/nginx/nginx:latest"
+launch_type                              = "FARGATE"
+desired_count                            = 1
 
 ecs_assign_public_ip = true
 ecs_task_cpu         = "1024"

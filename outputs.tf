@@ -1,22 +1,22 @@
 # ECR outputs
+output "agent_ecr_repository_url" {
+  description = "URL of the agent ECR repository"
+  value       = length(module.ecr) > 0 ? module.ecr[0].repository_url : null
+}
+
+output "webapp_ecr_repository_url" {
+  description = "URL of the webapp ECR repository"
+  value       = length(module.ecr) > 1 ? module.ecr[1].repository_url : null
+}
+
 output "ecr_repository_urls" {
-  description = "URLs of the ECR repositories"
+  description = "URLs of all ECR repositories (list)"
   value       = [for repo in module.ecr : repo.repository_url]
 }
 
 output "ecr_repository_names" {
-  description = "Names of the ECR repositories"
+  description = "Names of all ECR repositories (list)"
   value       = [for repo in module.ecr : repo.repository_name]
-}
-
-output "ecr_repository_url" {
-  description = "URL of the first ECR repository (for backward compatibility)"
-  value       = length(module.ecr) > 0 ? module.ecr[0].repository_url : null
-}
-
-output "ecr_repository_name" {
-  description = "Name of the first ECR repository (for backward compatibility)"
-  value       = length(module.ecr) > 0 ? module.ecr[0].repository_name : null
 }
 
 # AgentCore Memory outputs

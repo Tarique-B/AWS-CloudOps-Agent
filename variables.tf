@@ -168,6 +168,22 @@ variable "alb_listener_rule_path_pattern" {
 }
 
 # ECS configuration
+
+variable "runtime_platform_operating_system_family" {
+  description = "Operating system family for the runtime"
+  type        = string
+}
+
+variable "runtime_platform_cpu_architecture" {
+  description = "CPU architecture for the runtime"
+  type        = string
+}
+
+variable "runtime_platform_memory_size_gb" {
+  description = "Memory size for the runtime"
+  type        = number
+  default     = 1
+}
 variable "container_image" {
   description = "Container image URI"
   type        = string

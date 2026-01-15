@@ -102,12 +102,12 @@ pipeline {
                     
                     echo "📦 Getting ECR repository URLs from Terraform outputs..."
                     env.AGENT_ECR_REPO_URL = sh(
-                        script: "terraform output -raw ecr_repository_urls | jq -r '.[0]'",
+                        script: "terraform output -raw agent_ecr_repository_url",
                         returnStdout: true
                     ).trim()
                     
                     env.WEBAPP_ECR_REPO_URL = sh(
-                        script: "terraform output -raw ecr_repository_urls | jq -r '.[1]'",
+                        script: "terraform output -raw webapp_ecr_repository_url",
                         returnStdout: true
                     ).trim()
                     
@@ -198,13 +198,9 @@ pipeline {
                     if (!env.WEBAPP_ECR_REPO_URL || env.WEBAPP_ECR_REPO_URL.isEmpty()) {
                         echo "📦 Getting Webapp ECR repository URL..."
                         env.WEBAPP_ECR_REPO_URL = sh(
-                            script: "terraform output -raw ecr_repository_urls 2>/dev/null | jq -r '.[1]' || aws ecr describe-repositories --repository-names CloudOps_Agent_Webapp --query 'repositories[0].repositoryUri' --output text --region ${params.awsRegion}",
+                            script: "terraform output -raw webapp_ecr_repository_url",
                             returnStdout: true
                         ).trim()
-                    }
-                    
-                    if (!env.WEBAPP_ECR_REPO_URL || env.WEBAPP_ECR_REPO_URL.isEmpty()) {
-                        error "Webapp ECR repository URL not found. Please ensure ECR repositories are created first."
                     }
                 }
                 echo "🐳 Building webapp Docker image using buildx (ARM architecture)..."
