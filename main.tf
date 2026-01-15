@@ -32,6 +32,8 @@ module "agentcore_runtime" {
   managed_policy_names  = var.managed_policy_names
   environment_variables = module.agentcore_memory.memory_id != "" ? merge(var.environment_variables, {
     "AGENTCORE_LTM_MEMORY_ID" = module.agentcore_memory.memory_id
+    "STRANDS_AGENT_VERSION"   = var.agent_version
+    "STRANDS_AGENT_ENV"       = var.agent_env
   }) : var.environment_variables
 }
 
