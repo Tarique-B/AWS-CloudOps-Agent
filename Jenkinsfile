@@ -144,12 +144,12 @@ pipeline {
                 docker buildx create --use --name multiarch-builder || true
                 docker buildx inspect --bootstrap || true
 
-                echo "Building agent Docker image for ${AGENT_ENV} (ARM64)..."
+                echo "Building agent Docker image for ${AGENT_VERSION} (ARM64)..."
                 docker buildx build \
                     --platform linux/arm64 \
                     --load \
                     -f Dockerfile.agent \
-                    -t ${env.AGENT_ECR_REPO_URL}:${AGENT_ENV} \
+                    -t ${env.AGENT_ECR_REPO_URL}:${AGENT_VERSION} \
                     -t ${env.AGENT_ECR_REPO_URL}:${IMAGE_LATEST} \
                     .
                 """
@@ -163,7 +163,7 @@ pipeline {
             steps {
                 echo "🔍 Scanning agent Docker image for vulnerabilities..."
                 sh """
-                VULN_COUNT_AGENT=\$(trivy image --severity HIGH,CRITICAL --format json ${env.AGENT_ECR_REPO_URL}:${AGENT_ENV} \
+                VULN_COUNT_AGENT=\$(trivy image --severity HIGH,CRITICAL --format json ${env.AGENT_ECR_REPO_URL}:${AGENT_VERSION} \
                     | jq '[.Results[].Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' || echo "0")
 
                 echo "⚠️ Number of CRITICAL vulnerabilities in agent image: \$VULN_COUNT_AGENT"
@@ -183,7 +183,7 @@ pipeline {
             steps {
                 echo "📤 Pushing agent Docker images to ECR..."
                 sh """
-                docker push ${env.AGENT_ECR_REPO_URL}:${AGENT_ENV}
+                docker push ${env.AGENT_ECR_REPO_URL}:${AGENT_VERSION}
                 docker push ${env.AGENT_ECR_REPO_URL}:${IMAGE_LATEST}
                 """
             }
@@ -212,12 +212,12 @@ pipeline {
                 docker buildx create --use --name multiarch-builder || true
                 docker buildx inspect --bootstrap || true
 
-                echo "Building webapp Docker image for ${AGENT_ENV} (ARM64)..."
+                echo "Building webapp Docker image for ${AGENT_VERSION} (ARM64)..."
                 docker buildx build \
                     --platform linux/arm64 \
                     --load \
                     -f Dockerfile.app \
-                    -t ${env.WEBAPP_ECR_REPO_URL}:${AGENT_ENV} \
+                    -t ${env.WEBAPP_ECR_REPO_URL}:${AGENT_VERSION} \
                     -t ${env.WEBAPP_ECR_REPO_URL}:${IMAGE_LATEST} \
                     .
                 """
@@ -231,7 +231,7 @@ pipeline {
             steps {
                 echo "🔍 Scanning webapp Docker image for vulnerabilities..."
                 sh """
-                VULN_COUNT_WEBAPP=\$(trivy image --severity HIGH,CRITICAL --format json ${env.WEBAPP_ECR_REPO_URL}:${AGENT_ENV} \
+                VULN_COUNT_WEBAPP=\$(trivy image --severity HIGH,CRITICAL --format json ${env.WEBAPP_ECR_REPO_URL}:${AGENT_VERSION} \
                     | jq '[.Results[].Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' || echo "0")
 
                 echo "⚠️ Number of CRITICAL vulnerabilities in webapp image: \$VULN_COUNT_WEBAPP"
@@ -251,7 +251,7 @@ pipeline {
             steps {
                 echo "📤 Pushing webapp Docker images to ECR..."
                 sh """
-                docker push ${env.WEBAPP_ECR_REPO_URL}:${AGENT_ENV}
+                docker push ${env.WEBAPP_ECR_REPO_URL}:${AGENT_VERSION}
                 docker push ${env.WEBAPP_ECR_REPO_URL}:${IMAGE_LATEST}
                 """
             }

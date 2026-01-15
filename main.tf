@@ -25,7 +25,7 @@ module "agentcore_runtime" {
 
   agent_runtime_name    = local.name_prefix
   description           = var.agent_description
-  agent_ecr_image_uri   = module.ecr[0].repository_url
+  agent_ecr_image_uri   = "${module.ecr[0].repository_url}:${var.agent_version}"
   network_mode          = var.network_mode
   server_protocol       = var.server_protocol
   create_execution_role = var.create_execution_role
@@ -74,7 +74,7 @@ module "ecs" {
   runtime_platform_cpu_architecture        = var.runtime_platform_cpu_architecture
 
   container_name  = "${local.name_prefix}_Webapp"
-  container_image = module.ecr[1].repository_url
+  container_image = "${module.ecr[1].repository_url}:${var.agent_version}"
   container_port  = var.container_port
 
   launch_type   = var.launch_type
