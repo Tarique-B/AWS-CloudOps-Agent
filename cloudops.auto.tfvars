@@ -1,7 +1,7 @@
 # agent info
-agent_name        = "CloudOps_Agent"
+agent_name        = "cloudops_agent"
 agent_description = "Strands Agent Powered by AWS Bedrock AgentCore"
-agent_env         = "Dev"
+agent_env         = "dev"
 agent_version     = "1.0.0"
 
 # General values

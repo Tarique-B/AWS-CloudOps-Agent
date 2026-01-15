@@ -9,12 +9,12 @@ pipeline {
         )
         string(
             name: 'agentName', 
-            defaultValue: 'CloudOpsAgent', 
+            defaultValue: 'cloudops_agent', 
             description: 'Name of the agent (used for resource naming)'
         )
         choice(
             name: 'agentEnv',
-            choices: ['Dev', 'Staging', 'Prod'],
+            choices: ['dev', 'staging', 'prod'],
             description: 'Target environment for deployment'
         )
         string(
