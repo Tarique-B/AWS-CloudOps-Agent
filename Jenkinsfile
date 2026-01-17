@@ -82,6 +82,32 @@ pipeline {
             }
         }
 
+        stage('Scan Terraform Config') {
+            when {
+                expression { return !params.destroy }
+            }
+            steps {
+                script {
+                    echo "🔍 Scanning Terraform configuration for HIGH/CRITICAL issues using Trivy..."
+
+                    sh """
+                    trivy config --severity HIGH,CRITICAL --format table .
+
+                    # Count CRITICAL issues using jq
+                    CRITICAL_COUNT=\$(trivy config --severity HIGH,CRITICAL --format json . \
+                        | jq '[.Results[].Misconfigurations[]? | select(.Severity=="CRITICAL")] | length' || echo "0")
+
+                    echo "⚠️ CRITICAL issues found: \$CRITICAL_COUNT"
+
+                    if [ "\$CRITICAL_COUNT" -gt 5 ]; then
+                        echo "Too many CRITICAL issues (>5). Failing pipeline."
+                        exit 1
+                    fi
+                    """
+                }
+            }
+        }
+
         stage('Create ECR Repositories') {
             when {
                 expression { return !params.destroy }
@@ -90,15 +116,21 @@ pipeline {
                 script {
                     echo "🔧 Creating/Ensuring ECR repositories exist..."
                     
-                    echo "Initializing Terraform..."
-                    sh """
-                    terraform init
-                    """
+                    echo "Running Terraform plan for ECR repositories..."
+                    def ecrPlanExitCode = sh(
+                        script: "terraform plan -target=module.ecr -detailed-exitcode -out=ecr-plan.out || true",
+                        returnStatus: true
+                    )
                     
-                    echo "Creating ECR repositories (will use existing if already present)..."
-                    sh """
-                    terraform apply -target=module.ecr -auto-approve
-                    """
+                    if (ecrPlanExitCode == 0) {
+                        echo "✅ No changes detected for ECR repositories. Skipping apply."
+                    } else if (ecrPlanExitCode == 2) {
+                        echo "⚠️ Changes detected for ECR repositories. Applying..."
+                        sh "terraform apply -auto-approve ecr-plan.out"
+                    } else {
+                        echo "ℹ️ ECR repositories may not exist. Creating..."
+                        sh "terraform apply -target=module.ecr -auto-approve"
+                    }
                     
                     echo "📦 Getting ECR repository URLs from Terraform outputs..."
                     env.AGENT_ECR_REPO_URL = sh(
@@ -113,6 +145,28 @@ pipeline {
                     
                     echo "Agent ECR URL: ${env.AGENT_ECR_REPO_URL}"
                     echo "Webapp ECR URL: ${env.WEBAPP_ECR_REPO_URL}"
+                }
+            }
+        }
+
+        stage('Code Scan') {
+            when {
+                expression { return !params.destroy }
+            }
+            steps {
+                script {
+                    echo "🔍 Running code security scan..."
+                    try {
+                        withCredentials([string(credentialsId: 'snyk_token', variable: 'SNYK_TOKEN')]) {
+                            sh """
+                            echo "Running Snyk Code scan..."
+                            snyk code test --severity-threshold=high || true
+                            """
+                        }
+                    } catch (Exception e) {
+                        echo "⚠️ Snyk code scan skipped (credentials not available or Snyk not installed). Continuing..."
+                        echo "Consider setting up Snyk token credentials or installing Snyk CLI."
+                    }
                 }
             }
         }
@@ -258,9 +312,6 @@ pipeline {
         }
 
         stage('Deploy AgentCore Runtime and Memory') {
-            when {
-                expression { return !params.destroy && params.deploymentType == 'NewDeployment' }
-            }
             steps {
                 script {
                     echo "🔧 Deploying AgentCore Runtime and Memory..."
@@ -269,6 +320,11 @@ pipeline {
                     echo "Agent environment: ${env.TF_VAR_agent_env}"
                     echo "Agent version: ${env.TF_VAR_agent_version}"
                     echo "AWS region: ${env.TF_VAR_region}"
+                    
+                    echo "🔍 Running Terraform plan for AgentCore Runtime and Memory..."
+                    sh """
+                    terraform plan -target=module.agentcore_memory -target=module.agentcore_runtime -out=agentcore-plan.out
+                    """
                     
                     slackSend color: "#FFD700", message: """
                     🛑 *Approval Required: AgentCore Runtime and Memory Deployment*
@@ -282,7 +338,6 @@ pipeline {
                         ok: "✅ Deploy",
                         submitter: "${env.APPROVER}"
                     
-
                     echo "Step 1: Deploying AgentCore Memory..."
                     sh """
                     terraform apply -target=module.agentcore_memory -auto-approve
@@ -298,26 +353,20 @@ pipeline {
             }
         }
 
-        stage('Deploy Webapp Resources') {
-            when {
-                expression { return !params.destroy && params.deploymentType == 'NewDeployment' }
-            }
+        stage('Deploy Webapp') {
             steps {
                 script {
                     echo "🔧 Deploying Webapp Resources (VPC, ALB, ECS)..."
                     
-                    slackSend color: "#FFD700", message: """
-                    🛑 *Approval Required: Webapp Resources Deployment*
-                    Job: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}console|Review>)
-                    Environment: ${params.agentEnv}
-                    Agent Name: ${params.agentName}
-                    Webapp Image: ${env.WEBAPP_ECR_REPO_URL}:${AGENT_ENV}
-                    This will deploy: VPC, ALB, ECS
-                    """
+                    if (params.deploymentType == 'NewRelease') {
+                        env.TF_VAR_force_new_deployment = "true"
+                        echo "ℹ️ NewRelease detected. Setting force_new_deployment=true"
+                    }
                     
-                    input message: "⚡ Approve Webapp Resources deployment?",
-                        ok: "✅ Deploy",
-                        submitter: "${env.APPROVER}"
+                    echo "🔍 Running Terraform plan for Webapp Resources (VPC, ALB, ECS)..."
+                    sh """
+                    terraform plan -target=module.vpc -target=module.alb -target=module.ecs -out=webapp-plan.out
+                    """
                     
                     echo "Step 1: Deploying VPC..."
                     sh """
@@ -338,6 +387,7 @@ pipeline {
                 }
             }
         }
+
 
 
         stage('Terraform Destroy') {
