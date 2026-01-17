@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8080")
 AGENTCORE_RUNTIME_ARN = os.getenv("AGENTCORE_RUNTIME_ARN")
+AGENTCORE_RUNTIME_REGION = os.getenv("AGENTCORE_RUNTIME_REGION", "us-east-1")
 AGENTCORE_RUNTIME_ENDPOINT = os.getenv("AGENTCORE_RUNTIME_ENDPOINT", "DEFAULT")
 AGENT_RUNTIME = "Agentcore" if AGENTCORE_RUNTIME_ARN else "local"
 STRANDS_AGENT_VERSION = os.getenv("STRANDS_AGENT_VERSION", "v1.0.0")
@@ -36,7 +37,7 @@ def get_agent_runtime_info():
         return None
     
     try:
-        client = boto3.client('bedrock-agentcore-control', region_name=os.getenv("AWS_REGION", "us-east-1"))
+        client = boto3.client('bedrock-agentcore-control', region_name=AGENTCORE_RUNTIME_REGION)
         
         runtime_id = AGENTCORE_RUNTIME_ARN.split('/')[-1] if '/' in AGENTCORE_RUNTIME_ARN else AGENTCORE_RUNTIME_ARN.split(':')[-1] if ':' in AGENTCORE_RUNTIME_ARN else AGENTCORE_RUNTIME_ARN
         
@@ -87,7 +88,7 @@ def get_agent_status():
 def stream_agent_response(prompt, session_id=None, actor_id=None):
     if AGENT_RUNTIME == "Agentcore":
         try:
-            client = boto3.client('bedrock-agentcore', region_name=os.getenv("AWS_REGION", "us-east-1"))
+            client = boto3.client('bedrock-agentcore', region_name=AGENTCORE_RUNTIME_REGION)
             
             payload_data = {"prompt": prompt}
             if session_id:
@@ -162,7 +163,7 @@ def stream_agent_response(prompt, session_id=None, actor_id=None):
 def invoke_agent_non_streaming(prompt, session_id=None, actor_id=None):
     if AGENT_RUNTIME == "Agentcore":
         try:
-            client = boto3.client('bedrock-agentcore', region_name=os.getenv("AWS_REGION", "us-east-1"))
+            client = boto3.client('bedrock-agentcore', region_name=AGENTCORE_RUNTIME_REGION)
             
             payload_data = {"prompt": prompt}
             if session_id:
