@@ -118,7 +118,7 @@ pipeline {
                     
                     echo "Running Terraform plan for ECR repositories..."
                     def ecrPlanExitCode = sh(
-                        script: "terraform plan -no-color -target=module.ecr -detailed-exitcode -out=ecr-plan.out || true",
+                        script: "terraform plan -no-color -target=module.ecr -detailed-exitcode -out=ecr-plan.out",
                         returnStatus: true
                     )
                     
@@ -127,6 +127,9 @@ pipeline {
                     } else if (ecrPlanExitCode == 2) {
                         echo "⚠️ Changes detected for ECR repositories. Applying..."
                         sh "terraform apply -no-color -auto-approve ecr-plan.out"
+                    } else if (ecrPlanExitCode == 1) {
+                        echo "❌ Terraform plan failed. Check logs above."
+                        error "Terraform plan failed with exit code ${ecrPlanExitCode}"
                     } else {
                         echo "ℹ️ ECR repositories may not exist. Creating..."
                         sh "terraform apply -no-color -target=module.ecr -auto-approve"
@@ -328,14 +331,9 @@ pipeline {
                         ok: "✅ Deploy",
                         submitter: "${env.APPROVER}"
                     
-                    echo "Step 1: Deploying AgentCore Memory..."
+                    echo "Applying Terraform plan for AgentCore Runtime and Memory..."
                     sh """
-                    terraform apply -no-color -target=module.agentcore_memory -auto-approve
-                    """
-                    
-                    echo "Step 2: Deploying AgentCore Runtime..."
-                    sh """
-                    terraform apply -no-color -target=module.agentcore_runtime -auto-approve
+                    terraform apply -no-color -auto-approve agentcore-plan.out
                     """
                     
                     echo "✅ AgentCore Runtime and Memory deployment completed"
@@ -358,19 +356,9 @@ pipeline {
                     terraform plan -no-color -target=module.vpc -target=module.alb -target=module.ecs -out=webapp-plan.out
                     """
                     
-                    echo "Step 1: Deploying VPC..."
+                    echo "Applying Terraform plan for Webapp Resources..."
                     sh """
-                    terraform apply -no-color -target=module.vpc -auto-approve
-                    """
-                    
-                    echo "Step 2: Deploying ALB..."
-                    sh """
-                    terraform apply -no-color -target=module.alb -auto-approve
-                    """
-                    
-                    echo "Step 3: Deploying ECS Cluster..."
-                    sh """
-                    terraform apply -no-color -target=module.ecs -auto-approve
+                    terraform apply -no-color -auto-approve webapp-plan.out
                     """
                     
                     echo "✅ Webapp Resources deployment completed"
