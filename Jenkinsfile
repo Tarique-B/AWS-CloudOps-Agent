@@ -135,7 +135,7 @@ pipeline {
                         error "ECR repository URL not found. Please ensure ECR repository is created first."
                     }
                 }
-                echo "🐳 Building agent Docker image using buildx (ARM architecture)..."
+                echo "🐳 Building agent Docker image using buildx ..."
                 sh """
                 aws ecr get-login-password --region ${params.awsRegion} | \
                     docker login --username AWS --password-stdin ${env.AGENT_ECR_REPO_URL}
@@ -144,7 +144,7 @@ pipeline {
                 docker buildx create --use --name multiarch-builder || true
                 docker buildx inspect --bootstrap || true
 
-                echo "Building agent Docker image for ${AGENT_VERSION} (ARM64)..."
+                echo "Building agent Docker image for ${AGENT_VERSION}..."
                 docker buildx build \
                     --platform linux/arm64 \
                     --load \
@@ -212,7 +212,7 @@ pipeline {
                 docker buildx create --use --name multiarch-builder || true
                 docker buildx inspect --bootstrap || true
 
-                echo "Building webapp Docker image for ${AGENT_VERSION} (ARM64)..."
+                echo "Building webapp Docker image for ${AGENT_VERSION}..."
                 docker buildx build \
                     --platform linux/arm64 \
                     --load \
@@ -264,19 +264,25 @@ pipeline {
             steps {
                 script {
                     echo "🔧 Deploying AgentCore Runtime and Memory..."
+
+                    echo "🔍 Agent name: ${env.TF_VAR_agent_name}"
+                    echo "🔍 Agent environment: ${env.TF_VAR_agent_env}"
+                    echo "🔍 Agent version: ${env.TF_VAR_agent_version}"
+                    echo "🔍 AWS region: ${env.TF_VAR_region}"
                     
                     slackSend color: "#FFD700", message: """
                     🛑 *Approval Required: AgentCore Runtime and Memory Deployment*
                     Job: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}console|Review>)
                     Environment: ${params.agentEnv}
                     Agent Name: ${params.agentName}
-                    Agent Image: ${env.AGENT_ECR_REPO_URL}:${AGENT_ENV}
+                    Agent Image: ${env.AGENT_ECR_REPO_URL}:${AGENT_VERSION}
                     """
                     
                     input message: "⚡ Approve AgentCore Runtime and Memory deployment?",
                         ok: "✅ Deploy",
                         submitter: "${env.APPROVER}"
                     
+
                     echo "Step 1: Deploying AgentCore Memory..."
                     sh """
                     terraform apply -target=module.agentcore_memory -auto-approve
