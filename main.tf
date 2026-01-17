@@ -81,6 +81,10 @@ module "ecs" {
     {
       name  = "AGENTCORE_RUNTIME_ARN"
       value = module.agentcore_runtime.agent_runtime_arn
+    },
+    {
+      name  = "AGENTCORE_RUNTIME_REGION"
+      value = var.region
     }
   ]
 
