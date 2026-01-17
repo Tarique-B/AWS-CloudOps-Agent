@@ -183,6 +183,7 @@ pipeline {
                 }
                 echo "🐳 Building agent Docker image using buildx ..."
                 sh """
+                echo "📦 Logging into ECR repository: ${env.AGENT_ECR_REPO_URL}"
                 aws ecr get-login-password --region ${params.awsRegion} | \
                     docker login --username AWS --password-stdin ${env.AGENT_ECR_REPO_URL}
 
@@ -247,6 +248,7 @@ pipeline {
                 }
                 echo "🐳 Building webapp Docker image using buildx..."
                 sh """
+                echo "📦 Logging into ECR repository: ${env.WEBAPP_ECR_REPO_URL}"
                 aws ecr get-login-password --region ${params.awsRegion} | \
                     docker login --username AWS --password-stdin ${env.WEBAPP_ECR_REPO_URL}
 
