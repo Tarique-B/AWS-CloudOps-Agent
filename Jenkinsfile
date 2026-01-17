@@ -19,7 +19,7 @@ pipeline {
         )
         string(
             name: 'agentVersion', 
-            defaultValue: 'v1.0.0', 
+            defaultValue: 'v2.0.0', 
             description: 'Version of the agent to deploy'
         )
         string(
@@ -265,10 +265,10 @@ pipeline {
                 script {
                     echo "🔧 Deploying AgentCore Runtime and Memory..."
 
-                    echo "🔍 Agent name: ${env.TF_VAR_agent_name}"
-                    echo "🔍 Agent environment: ${env.TF_VAR_agent_env}"
-                    echo "🔍 Agent version: ${env.TF_VAR_agent_version}"
-                    echo "🔍 AWS region: ${env.TF_VAR_region}"
+                    echo "Agent name: ${env.TF_VAR_agent_name}"
+                    echo "Agent environment: ${env.TF_VAR_agent_env}"
+                    echo "Agent version: ${env.TF_VAR_agent_version}"
+                    echo "AWS region: ${env.TF_VAR_region}"
                     
                     slackSend color: "#FFD700", message: """
                     🛑 *Approval Required: AgentCore Runtime and Memory Deployment*

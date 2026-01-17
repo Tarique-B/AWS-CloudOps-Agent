@@ -1,15 +1,15 @@
 # agent info
-agent_name        = "cloudops_agent"
+# agent_name        = "cloudops_agent"
 agent_description = "Strands Agent Powered by AWS Bedrock AgentCore"
-agent_env         = "dev"
-agent_version     = "1.0.0"
+# agent_env         = "dev"
+# agent_version     = "1.0.0"
 
 # General values
 tags = {
   "Agent"       = "CloudOps_Agent",
   "Framework"   = "Strands",
   "Environment" = "Dev"
-  "Version"     = "1.0.0"
+  "Version"     = "v2.0.0"
   "Terraform"   = "True"
 }
 
@@ -27,7 +27,7 @@ environment_variables = {
   "STRANDS_AGENT_VERSION" = "v2.0.0"
   "BEDROCK_MODEL_ID"      = "anthropic.claude-3-5-sonnet-20240620-v1:0"
   "BEDROCK_MODEL_REGION"  = "us-east-1"
-  "BYPASS_TOOL_CONSENT=" = "true"
+  "BYPASS_TOOL_CONSENT="  = "true"
 }
 
 # Agentcore memory configuration
