@@ -77,6 +77,12 @@ module "ecs" {
   container_name  = "${local.name_prefix}_Webapp"
   container_image = "${module.ecr[1].repository_url}:${var.agent_version}"
   container_port  = var.container_port
+  container_environment = [
+    {
+      name  = "AGENTCORE_RUNTIME_ARN"
+      value = module.agentcore_runtime.agent_runtime_arn
+    }
+  ]
 
   launch_type   = var.launch_type
   desired_count = var.desired_count
@@ -90,5 +96,5 @@ module "ecs" {
   task_role_managed_policy_arns = var.ecs_task_role_managed_policy_arns
 
 
-  depends_on = [module.vpc, module.ecr, module.alb]
+  depends_on = [module.vpc, module.ecr, module.alb, module.agentcore_runtime]
 }
