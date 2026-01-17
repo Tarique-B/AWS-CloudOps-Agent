@@ -178,14 +178,6 @@ pipeline {
             steps {
                 script {
                     if (!env.AGENT_ECR_REPO_URL || env.AGENT_ECR_REPO_URL.isEmpty()) {
-                        echo "📦 Getting ECR repository URL..."
-                        env.AGENT_ECR_REPO_URL = sh(
-                            script: "terraform output -raw ecr_repository_url 2>/dev/null || aws ecr describe-repositories --repository-names ${NAME_PREFIX} --query 'repositories[0].repositoryUri' --output text --region ${params.awsRegion}",
-                            returnStdout: true
-                        ).trim()
-                    }
-                    
-                    if (!env.AGENT_ECR_REPO_URL || env.AGENT_ECR_REPO_URL.isEmpty()) {
                         error "ECR repository URL not found. Please ensure ECR repository is created first."
                     }
                 }
@@ -250,11 +242,7 @@ pipeline {
             steps {
                 script {
                     if (!env.WEBAPP_ECR_REPO_URL || env.WEBAPP_ECR_REPO_URL.isEmpty()) {
-                        echo "📦 Getting Webapp ECR repository URL..."
-                        env.WEBAPP_ECR_REPO_URL = sh(
-                            script: "terraform output -raw webapp_ecr_repository_url",
-                            returnStdout: true
-                        ).trim()
+                        error "ECR repository URL not found. Please ensure ECR repository is created first."
                     }
                 }
                 echo "🐳 Building webapp Docker image using buildx..."
