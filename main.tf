@@ -1,5 +1,6 @@
 locals {
-  name_prefix = "${var.agent_name}_${var.agent_env}"
+  name_prefix      = "${var.agent_name}_${var.agent_env}"
+  name_prefix_alb  = replace("${var.agent_name}_${var.agent_env}", "_", "-")
 }
 
 # NOTE: Using my own modules for Agentcore,VPC,ECR,ECS,ALB. Refering from respective repos.
@@ -50,7 +51,7 @@ module "vpc" {
 module "alb" {
   source = "git::https://github.com/Tarique-B-DevOps/Terraform-AWS-ECR-ECS.git//modules/alb?ref=main"
 
-  name_prefix                = local.name_prefix
+  name_prefix                = local.name_prefix_alb
   vpc_id                     = module.vpc.vpc_id
   subnet_ids                 = module.vpc.public_subnet_ids
   internal                   = var.alb_internal

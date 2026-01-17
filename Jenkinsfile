@@ -203,7 +203,7 @@ pipeline {
                         ).trim()
                     }
                 }
-                echo "🐳 Building webapp Docker image using buildx (ARM architecture)..."
+                echo "🐳 Building webapp Docker image using buildx..."
                 sh """
                 aws ecr get-login-password --region ${params.awsRegion} | \
                     docker login --username AWS --password-stdin ${env.WEBAPP_ECR_REPO_URL}
