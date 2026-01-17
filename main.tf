@@ -1,6 +1,6 @@
 locals {
-  name_prefix      = "${var.agent_name}_${var.agent_env}"
-  name_prefix_alb  = replace("${var.agent_name}_${var.agent_env}", "_", "-")
+  name_prefix     = "${var.agent_name}_${var.agent_env}"
+  name_prefix_alb = replace("${var.agent_name}_${var.agent_env}", "_", "-")
 }
 
 # NOTE: Using my own modules for Agentcore,VPC,ECR,ECS,ALB. Refering from respective repos.
@@ -88,6 +88,8 @@ module "ecs" {
   desired_count = var.desired_count
   task_cpu      = var.ecs_task_cpu
   task_memory   = var.ecs_task_memory
+
+  force_new_deployment = var.force_new_deployment
 
   target_group_arn      = module.alb.target_group_arn
   alb_security_group_id = module.alb.security_group_id
