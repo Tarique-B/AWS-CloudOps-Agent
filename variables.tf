@@ -201,6 +201,12 @@ variable "launch_type" {
   default     = "FARGATE"
 }
 
+variable "force_new_deployment" {
+  description = "Whether to force new deployment"
+  type        = bool
+  default     = false
+}
+
 variable "desired_count" {
   description = "Desired number of ECS tasks"
   type        = number
