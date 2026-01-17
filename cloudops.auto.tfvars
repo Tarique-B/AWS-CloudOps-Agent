@@ -27,7 +27,7 @@ environment_variables = {
   "STRANDS_AGENT_VERSION" = "v2.0.0"
   "BEDROCK_MODEL_ID"      = "anthropic.claude-3-5-sonnet-20240620-v1:0"
   "BEDROCK_MODEL_REGION"  = "us-east-1"
-  "BYPASS_TOOL_CONSENT="  = "true"
+  "BYPASS_TOOL_CONSENT"  = "true"
 }
 
 # Agentcore memory configuration
