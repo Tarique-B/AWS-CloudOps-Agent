@@ -65,29 +65,40 @@ def get_agent_runtime_info():
 def get_agent_status():
     if AGENT_RUNTIME == "Agentcore":
         try:
+            logger.debug("Step 4/7: Checking AgentCore runtime status")
             runtime_info = get_agent_runtime_info()
             if runtime_info:
+                status = "healthy" if runtime_info.get("status") == "READY" else "unhealthy"
+                logger.debug(f"Step 4/7: AgentCore status: {status}, Model: {runtime_info.get('model_id', 'unknown')}")
                 return {
-                    "status": "healthy" if runtime_info.get("status") == "READY" else "unhealthy",
+                    "status": status,
                     "model_id": runtime_info.get("model_id", "unknown"),
                     "agent_initialized": True,
                     "runtime_info": runtime_info
                 }
+            logger.warning("Step 4/7: AgentCore runtime info not available")
             return {"status": "healthy", "model_id": "unknown", "agent_initialized": True}
-        except Exception:
+        except Exception as e:
+            logger.error(f"Step 4/7: Failed to get AgentCore status: {str(e)}")
             return {"status": "unhealthy", "model_id": "unknown", "agent_initialized": False}
     else:
         try:
+            logger.debug(f"Step 4/7: Checking local API status: {API_BASE_URL}/ping")
             response = requests.get(f"{API_BASE_URL}/ping", timeout=2)
             if response.status_code == 200:
-                return response.json()
+                status_data = response.json()
+                logger.debug(f"Step 4/7: Local API status: {status_data.get('status', 'unknown')}")
+                return status_data
+            logger.warning(f"Step 4/7: Local API returned status code: {response.status_code}")
             return {"status": "unhealthy", "model_id": "unknown", "agent_initialized": False}
-        except Exception:
+        except Exception as e:
+            logger.error(f"Step 4/7: Failed to connect to local API: {str(e)}")
             return {"status": "unhealthy", "model_id": "unknown", "agent_initialized": False}
 
 def stream_agent_response(prompt, session_id=None, actor_id=None):
     if AGENT_RUNTIME == "Agentcore":
         try:
+            logger.info(f"Step 5/7: Creating Bedrock AgentCore client (Region: {AGENTCORE_RUNTIME_REGION})")
             client = boto3.client('bedrock-agentcore', region_name=AGENTCORE_RUNTIME_REGION)
             
             payload_data = {"prompt": prompt}
@@ -97,21 +108,27 @@ def stream_agent_response(prompt, session_id=None, actor_id=None):
                 payload_data["actor_id"] = actor_id
             
             payload = json.dumps(payload_data)
+            logger.info(f"Step 5/7: Payload prepared: prompt_length={len(prompt)}, has_session_id={bool(session_id)}, has_actor_id={bool(actor_id)}")
             
             if session_id and len(session_id) >= 33:
                 runtime_session_id = session_id
+                logger.info(f"Step 5/7: Using provided session_id: {runtime_session_id[:20]}...")
             else:
                 session_uuid = uuid.uuid4().hex
                 runtime_session_id = f"session_{session_uuid}_{uuid.uuid4().hex[:10]}"
+                logger.info(f"Step 5/7: Generated new runtime_session_id: {runtime_session_id}")
             
+            logger.info(f"Step 5/7: Invoking AgentCore Runtime (ARN: {AGENTCORE_RUNTIME_ARN[:50]}...)")
             response = client.invoke_agent_runtime(
                 agentRuntimeArn=AGENTCORE_RUNTIME_ARN,
                 runtimeSessionId=runtime_session_id,
                 payload=payload,
                 qualifier=AGENTCORE_RUNTIME_ENDPOINT
             )
+            logger.info("Step 5/7: AgentCore invocation successful, processing response stream")
             
             # Process the response stream
+            line_count = 0
             for line in response["response"].iter_lines():
                 if line:
                     line_str = line.decode('utf-8')
@@ -119,20 +136,31 @@ def stream_agent_response(prompt, session_id=None, actor_id=None):
                         try:
                             data = json.loads(line_str[6:])
                             if 'chunk' in data:
+                                line_count += 1
+                                if line_count == 1:
+                                    logger.info("Step 5/7: First data chunk received from stream")
                                 yield data['chunk']
                             elif 'error' in data:
+                                logger.error(f"Step 5/7: Error in stream: {data['error']}")
                                 yield f"\n\nStream Error: {data['error']}"
-                        except:
+                        except Exception as parse_error:
+                            logger.debug(f"Step 5/7: Failed to parse stream line: {str(parse_error)}")
                             continue
+            logger.info(f"Step 5/7: Stream processing complete. Total data lines: {line_count}")
         except Exception as e:
+            logger.error(f"Step 5/7: AgentCore runtime error: {str(e)}")
             yield f"Agentcore runtime error: {str(e)}"
     else:
         try:
+            logger.info(f"Step 5/7: Preparing request to local API: {API_BASE_URL}/invocations")
             request_data = {"prompt": prompt, "stream": True}
             if session_id:
                 request_data["session_id"] = session_id
             if actor_id:
                 request_data["actor_id"] = actor_id
+            
+            logger.info(f"Step 5/7: Request data: prompt_length={len(prompt)}, has_session_id={bool(session_id)}, has_actor_id={bool(actor_id)}")
+            logger.info(f"Step 5/7: Sending POST request to API (timeout: 300s)")
             
             response = requests.post(
                 f"{API_BASE_URL}/invocations",
@@ -141,10 +169,15 @@ def stream_agent_response(prompt, session_id=None, actor_id=None):
                 timeout=300
             )
             
+            logger.info(f"Step 5/7: API response received. Status code: {response.status_code}")
+            
             if response.status_code != 200:
+                logger.error(f"Step 5/7: API returned error status: {response.status_code}")
                 yield f"Oops! Something went wrong. (Status: {response.status_code})"
                 return
 
+            logger.info("Step 5/7: Processing API response stream")
+            line_count = 0
             for line in response.iter_lines():
                 if line:
                     line_str = line.decode('utf-8')
@@ -152,17 +185,26 @@ def stream_agent_response(prompt, session_id=None, actor_id=None):
                         try:
                             data = json.loads(line_str[6:])
                             if 'chunk' in data:
+                                line_count += 1
+                                if line_count == 1:
+                                    logger.info("Step 5/7: First data chunk received from API stream")
                                 yield data['chunk']
                             elif 'error' in data:
+                                logger.error(f"Step 5/7: Error in API stream: {data['error']}")
                                 yield f"\n\nStream Error: {data['error']}"
-                        except:
+                        except Exception as parse_error:
+                            logger.debug(f"Step 5/7: Failed to parse API stream line: {str(parse_error)}")
                             continue
+            logger.info(f"Step 5/7: API stream processing complete. Total data lines: {line_count}")
         except Exception as e:
+            logger.error(f"Step 5/7: Connection error: {str(e)}")
             yield f"Connection issue: {str(e)}"
 
 def invoke_agent_non_streaming(prompt, session_id=None, actor_id=None):
+    logger.info("Step 5/7: Using non-streaming mode")
     if AGENT_RUNTIME == "Agentcore":
         try:
+            logger.info(f"Step 5/7: Creating Bedrock AgentCore client (Region: {AGENTCORE_RUNTIME_REGION})")
             client = boto3.client('bedrock-agentcore', region_name=AGENTCORE_RUNTIME_REGION)
             
             payload_data = {"prompt": prompt}
@@ -172,13 +214,17 @@ def invoke_agent_non_streaming(prompt, session_id=None, actor_id=None):
                 payload_data["actor_id"] = actor_id
             
             payload = json.dumps(payload_data)
+            logger.info(f"Step 5/7: Payload prepared: prompt_length={len(prompt)}, has_session_id={bool(session_id)}, has_actor_id={bool(actor_id)}")
             
             if session_id and len(session_id) >= 33:
                 runtime_session_id = session_id
+                logger.info(f"Step 5/7: Using provided session_id: {runtime_session_id[:20]}...")
             else:
                 session_uuid = uuid.uuid4().hex
                 runtime_session_id = f"session_{session_uuid}_{uuid.uuid4().hex[:10]}"
+                logger.info(f"Step 5/7: Generated new runtime_session_id: {runtime_session_id}")
             
+            logger.info(f"Step 5/7: Invoking AgentCore Runtime (non-streaming, ARN: {AGENTCORE_RUNTIME_ARN[:50]}...)")
             response = client.invoke_agent_runtime(
                 agentRuntimeArn=AGENTCORE_RUNTIME_ARN,
                 runtimeSessionId=runtime_session_id,
@@ -186,27 +232,41 @@ def invoke_agent_non_streaming(prompt, session_id=None, actor_id=None):
                 qualifier=AGENTCORE_RUNTIME_ENDPOINT
             )
             
+            logger.info("Step 5/7: AgentCore invocation successful, reading response")
             response_data = json.loads(response["response"].read())
-            return response_data.get("response", "No response received.")
+            response_text = response_data.get("response", "No response received.")
+            logger.info(f"Step 5/7: Response received. Length: {len(response_text)}")
+            return response_text
         except Exception as e:
+            logger.error(f"Step 5/7: AgentCore runtime error: {str(e)}")
             return f"Agentcore runtime error: {str(e)}"
     else:
         try:
+            logger.info(f"Step 5/7: Preparing request to local API: {API_BASE_URL}/invocations (non-streaming)")
             request_data = {"prompt": prompt, "stream": False}
             if session_id:
                 request_data["session_id"] = session_id
             if actor_id:
                 request_data["actor_id"] = actor_id
             
+            logger.info(f"Step 5/7: Request data: prompt_length={len(prompt)}, has_session_id={bool(session_id)}, has_actor_id={bool(actor_id)}")
+            logger.info(f"Step 5/7: Sending POST request to API (timeout: 300s)")
+            
             response = requests.post(
                 f"{API_BASE_URL}/invocations",
                 json=request_data,
                 timeout=300
             )
+            
+            logger.info(f"Step 5/7: API response received. Status code: {response.status_code}")
             if response.status_code == 200:
-                return response.json().get("response", "No response received.")
+                response_text = response.json().get("response", "No response received.")
+                logger.info(f"Step 5/7: Response received. Length: {len(response_text)}")
+                return response_text
+            logger.error(f"Step 5/7: API returned error status: {response.status_code}")
             return f"Error: {response.status_code}"
         except Exception as e:
+            logger.error(f"Step 5/7: Connection error: {str(e)}")
             return f"Error: {str(e)}"
 
 def get_model_name(model_id):
@@ -1007,6 +1067,9 @@ if "pending_user_input" not in st.session_state:
 
 
 def process_user_input(input_text):
+    logger.info(f"Step 1/7: User input received: {input_text[:100]}...")
+    logger.info(f"Step 1/7: Session ID: {st.session_state.get('session_id', 'N/A')}, Actor ID: {st.session_state.get('actor_id', 'N/A')}")
+    
     st.session_state.messages.append({"role": "user", "content": input_text})
     st.session_state.messages.append({"role": "assistant", "content": "LOADING"})
     if "processing" not in st.session_state:
@@ -1015,6 +1078,7 @@ def process_user_input(input_text):
         st.session_state.pending_user_input = None
     st.session_state.processing = True
     st.session_state.pending_user_input = input_text
+    logger.info("Step 2/7: User input queued for processing")
     st.rerun()
 
 for i, msg in enumerate(st.session_state.messages):
@@ -1033,24 +1097,38 @@ for i, msg in enumerate(st.session_state.messages):
                 st.session_state.processing = False
                 st.session_state.pending_user_input = None
                 
+                logger.info(f"Step 3/7: Processing user input: {user_input[:100]}...")
+                logger.info(f"Step 4/7: Checking agent status (Runtime: {AGENT_RUNTIME})")
+                
                 status = get_agent_status()
+                logger.info(f"Step 4/7: Agent status: initialized={status.get('agent_initialized')}, status={status.get('status')}")
+                
                 if not status.get("agent_initialized"):
+                    logger.error("Step 4/7: Agent not initialized - cannot process request")
                     message_placeholder.error("I'm having trouble connecting to the agent. Please check the backend.")
                     st.session_state.messages[i] = {"role": "assistant", "content": "Error: Agent not initialized."}
                 else:
                     try:
+                        logger.info(f"Step 5/7: Invoking agent (streaming mode, Runtime: {AGENT_RUNTIME})")
                         response_text = ""
                         first_chunk = True
+                        chunk_count = 0
                         for chunk in stream_agent_response(user_input, st.session_state.session_id, st.session_state.actor_id):
                             if first_chunk:
+                                logger.info("Step 6/7: First response chunk received, starting to display")
                                 message_placeholder.empty()
                                 first_chunk = False
+                            chunk_count += 1
                             response_text += chunk
                             message_placeholder.markdown(response_text)
+                        logger.info(f"Step 7/7: Streaming complete. Total chunks: {chunk_count}, Response length: {len(response_text)}")
                         st.session_state.messages[i] = {"role": "assistant", "content": response_text}
                     except Exception as e:
+                        logger.warning(f"Step 5/7: Streaming failed, falling back to non-streaming: {str(e)}")
+                        logger.info("Step 5/7: Attempting non-streaming invocation")
                         message_placeholder.empty()
                         response_text = invoke_agent_non_streaming(user_input, st.session_state.session_id, st.session_state.actor_id)
+                        logger.info(f"Step 7/7: Non-streaming response received. Length: {len(response_text)}")
                         message_placeholder.markdown(response_text)
                         st.session_state.messages[i] = {"role": "assistant", "content": response_text}
         elif msg["content"] == "LOADING":
