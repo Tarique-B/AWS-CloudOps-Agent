@@ -305,6 +305,9 @@ pipeline {
         }
 
         stage('Deploy AgentCore Runtime and Memory') {
+            when {
+                expression { return !params.destroy }
+            }
             steps {
                 script {
                     echo "🔧 Deploying AgentCore Runtime and Memory..."
@@ -342,6 +345,9 @@ pipeline {
         }
 
         stage('Deploy Webapp') {
+            when {
+                expression { return !params.destroy }
+            }
             steps {
                 script {
                     echo "🔧 Deploying Webapp Resources (VPC, ALB, ECS)..."
