@@ -76,8 +76,8 @@ pipeline {
             steps {
                 echo "🔍 Initializing and validating Terraform configuration..."
                 sh """
-                terraform init
-                terraform validate
+                terraform init -no-color
+                terraform validate -no-color
                 """
             }
         }
@@ -118,7 +118,7 @@ pipeline {
                     
                     echo "Running Terraform plan for ECR repositories..."
                     def ecrPlanExitCode = sh(
-                        script: "terraform plan -target=module.ecr -detailed-exitcode -out=ecr-plan.out || true",
+                        script: "terraform plan -no-color -target=module.ecr -detailed-exitcode -out=ecr-plan.out || true",
                         returnStatus: true
                     )
                     
@@ -126,20 +126,20 @@ pipeline {
                         echo "✅ No changes detected for ECR repositories. Skipping apply."
                     } else if (ecrPlanExitCode == 2) {
                         echo "⚠️ Changes detected for ECR repositories. Applying..."
-                        sh "terraform apply -auto-approve ecr-plan.out"
+                        sh "terraform apply -no-color -auto-approve ecr-plan.out"
                     } else {
                         echo "ℹ️ ECR repositories may not exist. Creating..."
-                        sh "terraform apply -target=module.ecr -auto-approve"
+                        sh "terraform apply -no-color -target=module.ecr -auto-approve"
                     }
                     
                     echo "📦 Getting ECR repository URLs from Terraform outputs..."
                     env.AGENT_ECR_REPO_URL = sh(
-                        script: "terraform output -raw agent_ecr_repository_url",
+                        script: "terraform output -no-color -raw agent_ecr_repository_url",
                         returnStdout: true
                     ).trim()
                     
                     env.WEBAPP_ECR_REPO_URL = sh(
-                        script: "terraform output -raw webapp_ecr_repository_url",
+                        script: "terraform output -no-color -raw webapp_ecr_repository_url",
                         returnStdout: true
                     ).trim()
                     
@@ -313,7 +313,7 @@ pipeline {
                     
                     echo "🔍 Running Terraform plan for AgentCore Runtime and Memory..."
                     sh """
-                    terraform plan -target=module.agentcore_memory -target=module.agentcore_runtime -out=agentcore-plan.out
+                    terraform plan -no-color -target=module.agentcore_memory -target=module.agentcore_runtime -out=agentcore-plan.out
                     """
                     
                     slackSend color: "#FFD700", message: """
@@ -330,12 +330,12 @@ pipeline {
                     
                     echo "Step 1: Deploying AgentCore Memory..."
                     sh """
-                    terraform apply -target=module.agentcore_memory -auto-approve
+                    terraform apply -no-color -target=module.agentcore_memory -auto-approve
                     """
                     
                     echo "Step 2: Deploying AgentCore Runtime..."
                     sh """
-                    terraform apply -target=module.agentcore_runtime -auto-approve
+                    terraform apply -no-color -target=module.agentcore_runtime -auto-approve
                     """
                     
                     echo "✅ AgentCore Runtime and Memory deployment completed"
@@ -355,22 +355,22 @@ pipeline {
                     
                     echo "🔍 Running Terraform plan for Webapp Resources (VPC, ALB, ECS)..."
                     sh """
-                    terraform plan -target=module.vpc -target=module.alb -target=module.ecs -out=webapp-plan.out
+                    terraform plan -no-color -target=module.vpc -target=module.alb -target=module.ecs -out=webapp-plan.out
                     """
                     
                     echo "Step 1: Deploying VPC..."
                     sh """
-                    terraform apply -target=module.vpc -auto-approve
+                    terraform apply -no-color -target=module.vpc -auto-approve
                     """
                     
                     echo "Step 2: Deploying ALB..."
                     sh """
-                    terraform apply -target=module.alb -auto-approve
+                    terraform apply -no-color -target=module.alb -auto-approve
                     """
                     
                     echo "Step 3: Deploying ECS Cluster..."
                     sh """
-                    terraform apply -target=module.ecs -auto-approve
+                    terraform apply -no-color -target=module.ecs -auto-approve
                     """
                     
                     echo "✅ Webapp Resources deployment completed"
@@ -418,8 +418,8 @@ pipeline {
                 done
                 
                 echo "🔧 Proceeding with Terraform destroy..."
-                terraform init
-                terraform destroy -auto-approve
+                terraform init -no-color
+                terraform destroy -no-color -auto-approve
                 """
             }
         }
