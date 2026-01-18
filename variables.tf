@@ -210,6 +210,7 @@ variable "force_new_deployment" {
 variable "wait_for_steady_state" {
   description = "Whether to wait for steady state"
   type        = bool
+  default     = false
 }
 
 variable "desired_count" {
