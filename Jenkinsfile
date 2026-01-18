@@ -5,7 +5,7 @@ pipeline {
         choice(
             name: 'deploymentType',
             choices: ['NewDeployment', 'FullRelease', 'AgentRelease', 'AppRelease', 'UpdateInfra',],
-            description: 'Deployment type: NewDeployment creates all resources with builds, FullRelease builds/pushes all images with service steady state, AgentRelease builds/pushes agent image only, AppRelease builds/pushes webapp image only, UpdateInfra only updates infrastructure'
+            description: 'Deployment type: NewDeployment creates all resources with builds, FullRelease builds/pushes all images with service steady state, AgentRelease builds/pushes agent image only, AppRelease builds/pushes app image only, UpdateInfra only updates infrastructure'
         )
         string(
             name: 'agentName', 
@@ -166,13 +166,13 @@ pipeline {
                         returnStdout: true
                     ).trim()
                     
-                    env.WEBAPP_ECR_REPO_URL = sh(
-                        script: "terraform output -no-color -raw webapp_ecr_repository_url",
+                    env.APP_ECR_REPO_URL = sh(
+                        script: "terraform output -no-color -raw app_ecr_repository_url",
                         returnStdout: true
                     ).trim()
                     
                     echo "Agent ECR URL: ${env.AGENT_ECR_REPO_URL}"
-                    echo "Webapp ECR URL: ${env.WEBAPP_ECR_REPO_URL}"
+                    echo "App ECR URL: ${env.APP_ECR_REPO_URL}"
                 }
             }
         }
@@ -264,74 +264,74 @@ pipeline {
             }
         }
 
-        stage('Build Webapp Docker Image') {
+        stage('Build App Docker Image') {
             when {
                 expression { return !params.destroy && params.deploymentType != 'UpdateInfra' && params.deploymentType != 'AgentRelease' }
             }
             steps {
                 script {
-                    if (!env.WEBAPP_ECR_REPO_URL || env.WEBAPP_ECR_REPO_URL.isEmpty()) {
+                    if (!env.APP_ECR_REPO_URL || env.APP_ECR_REPO_URL.isEmpty()) {
                         error "ECR repository URL not found. Please ensure ECR repository is created first."
                     }
                 }
-                echo "🐳 Building webapp Docker image using buildx..."
+                echo "🐳 Building app Docker image using buildx..."
                 sh """
-                echo "📦 Logging into ECR repository: ${env.WEBAPP_ECR_REPO_URL}"
+                echo "📦 Logging into ECR repository: ${env.APP_ECR_REPO_URL}"
                 aws ecr get-login-password --region ${params.awsRegion} | \
-                    docker login --username AWS --password-stdin ${env.WEBAPP_ECR_REPO_URL}
+                    docker login --username AWS --password-stdin ${env.APP_ECR_REPO_URL}
 
                 echo "Setting up Docker buildx..."
                 docker buildx create --use --name multiarch-builder || true
                 docker buildx inspect --bootstrap || true
 
-                echo "Building webapp Docker image for ${AGENT_VERSION}..."
+                echo "Building app Docker image for ${AGENT_VERSION}..."
                 docker buildx build \
                     --platform linux/arm64 \
                     --load \
                     -f Dockerfile.app \
-                    -t ${env.WEBAPP_ECR_REPO_URL}:${AGENT_VERSION} \
-                    -t ${env.WEBAPP_ECR_REPO_URL}:${IMAGE_LATEST} \
+                    -t ${env.APP_ECR_REPO_URL}:${AGENT_VERSION} \
+                    -t ${env.APP_ECR_REPO_URL}:${IMAGE_LATEST} \
                     .
                 """
             }
         }
 
-        stage('Scan Webapp Image') {
+        stage('Scan App Image') {
             when {
                 expression { return !params.destroy && params.deploymentType != 'UpdateInfra' && params.deploymentType != 'AgentRelease' }
             }
             steps {
-                echo "🔍 Scanning webapp Docker image for vulnerabilities..."
+                echo "🔍 Scanning app Docker image for vulnerabilities..."
                 sh """
-                VULN_COUNT_WEBAPP=\$(trivy image --severity HIGH,CRITICAL --format json ${env.WEBAPP_ECR_REPO_URL}:${AGENT_VERSION} \
+                VULN_COUNT_APP=\$(trivy image --severity HIGH,CRITICAL --format json ${env.APP_ECR_REPO_URL}:${AGENT_VERSION} \
                     | jq '[.Results[].Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' || echo "0")
 
-                echo "⚠️ Number of CRITICAL vulnerabilities in webapp image: \$VULN_COUNT_WEBAPP"
+                echo "⚠️ Number of CRITICAL vulnerabilities in app image: \$VULN_COUNT_APP"
 
-                if [ "\$VULN_COUNT_WEBAPP" -gt 5 ]; then
-                    echo "Webapp container image has too many CRITICAL vulnerabilities. Failing pipeline."
+                if [ "\$VULN_COUNT_APP" -gt 5 ]; then
+                    echo "App container image has too many CRITICAL vulnerabilities. Failing pipeline."
                     exit 1
                 fi
                 """
             }
         }
 
-        stage('Push Webapp Docker Image') {
+        stage('Push App Docker Image') {
             when {
                 expression { return !params.destroy && params.deploymentType != 'UpdateInfra' && params.deploymentType != 'AgentRelease' }
             }
             steps {
-                echo "📤 Pushing webapp Docker images to ECR..."
+                echo "📤 Pushing app Docker images to ECR..."
                 sh """
-                docker push ${env.WEBAPP_ECR_REPO_URL}:${AGENT_VERSION}
-                docker push ${env.WEBAPP_ECR_REPO_URL}:${IMAGE_LATEST}
+                docker push ${env.APP_ECR_REPO_URL}:${AGENT_VERSION}
+                docker push ${env.APP_ECR_REPO_URL}:${IMAGE_LATEST}
                 """
             }
         }
 
         stage('Deploy AgentCore Runtime and Memory') {
             when {
-                expression { return !params.destroy }
+                expression { return !params.destroy && params.deploymentType != 'AppRelease' }
             }
             steps {
                 script {
@@ -393,13 +393,13 @@ pipeline {
             }
         }
 
-        stage('Deploy Webapp') {
+        stage('Deploy App') {
             when {
-                expression { return !params.destroy }
+                expression { return !params.destroy && params.deploymentType != 'AgentRelease' }
             }
             steps {
                 script {
-                    echo "🔧 Deploying Webapp Resources (VPC, ALB, ECS)..."
+                    echo "🔧 Deploying App Resources (VPC, ALB, ECS)..."
                     
                     if (params.deploymentType == 'FullRelease' || params.deploymentType == 'AgentRelease' || params.deploymentType == 'AppRelease') {
                         env.TF_VAR_force_new_deployment = "true"
@@ -407,53 +407,53 @@ pipeline {
                         echo "ℹ️ ${params.deploymentType} detected. Setting force_new_deployment=true and wait_for_steady_state=true"
                     }
                     
-                    echo "🔍 Running Terraform plan for Webapp Resources (VPC, ALB, ECS)..."
-                    def webappPlanExitCode = sh(
-                        script: "terraform plan -no-color -target=module.vpc -target=module.alb -target=module.ecs -detailed-exitcode -out=webapp-plan.out",
+                    echo "🔍 Running Terraform plan for App Resources (VPC, ALB, ECS)..."
+                    def appPlanExitCode = sh(
+                        script: "terraform plan -no-color -target=module.vpc -target=module.alb -target=module.ecs -detailed-exitcode -out=app-plan.out",
                         returnStatus: true
                     )
                     
-                    if (webappPlanExitCode == 0) {
-                        echo "✅ No changes detected for Webapp Resources. Skipping apply."
-                    } else if (webappPlanExitCode == 2) {
-                        echo "⚠️ Changes detected for Webapp Resources."
+                    if (appPlanExitCode == 0) {
+                        echo "✅ No changes detected for App Resources. Skipping apply."
+                    } else if (appPlanExitCode == 2) {
+                        echo "⚠️ Changes detected for App Resources."
                         
                         slackSend color: "#FFD700", message: """
-                        🛑 *Approval Required: Webapp Resources Deployment (VPC, ALB, ECS)*
+                        🛑 *Approval Required: App Resources Deployment (VPC, ALB, ECS)*
                         Job: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}console|Review>)
                         Environment: ${params.agentEnv}
                         Agent Name: ${params.agentName}
                         Deployment Type: ${params.deploymentType}
                         """
                         
-                        input message: "⚡ Approve Webapp Resources (VPC, ALB, ECS) deployment?",
+                        input message: "⚡ Approve App Resources (VPC, ALB, ECS) deployment?",
                             ok: "✅ Deploy",
                             submitter: "${env.APPROVER}"
                         
-                        echo "Applying Terraform plan for Webapp Resources..."
-                        sh "terraform apply -no-color -auto-approve webapp-plan.out"
-                    } else if (webappPlanExitCode == 1) {
+                        echo "Applying Terraform plan for App Resources..."
+                        sh "terraform apply -no-color -auto-approve app-plan.out"
+                    } else if (appPlanExitCode == 1) {
                         echo "❌ Terraform plan failed. Check logs above."
-                        error "Terraform plan failed with exit code ${webappPlanExitCode}"
+                        error "Terraform plan failed with exit code ${appPlanExitCode}"
                     } else {
-                        echo "⚠️ Unexpected exit code: ${webappPlanExitCode}. Proceeding with approval request."
+                        echo "⚠️ Unexpected exit code: ${appPlanExitCode}. Proceeding with approval request."
                         
                         slackSend color: "#FFD700", message: """
-                        🛑 *Approval Required: Webapp Resources Deployment (VPC, ALB, ECS)*
+                        🛑 *Approval Required: App Resources Deployment (VPC, ALB, ECS)*
                         Job: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}console|Review>)
                         Environment: ${params.agentEnv}
                         Agent Name: ${params.agentName}
                         Deployment Type: ${params.deploymentType}
                         """
                         
-                        input message: "⚡ Approve Webapp Resources (VPC, ALB, ECS) deployment?",
+                        input message: "⚡ Approve App Resources (VPC, ALB, ECS) deployment?",
                             ok: "✅ Deploy",
                             submitter: "${env.APPROVER}"
                         
-                        sh "terraform apply -no-color -auto-approve webapp-plan.out"
+                        sh "terraform apply -no-color -auto-approve app-plan.out"
                     }
                     
-                    echo "✅ Webapp Resources deployment completed"
+                    echo "✅ App Resources deployment completed"
                 }
             }
         }
@@ -478,20 +478,20 @@ pipeline {
                             returnStdout: true
                         ).trim()
                         
-                        env.WEBAPP_ECR_REPO_URL = sh(
-                            script: "terraform output -no-color -raw webapp_ecr_repository_url 2>/dev/null || echo ''",
+                        env.APP_ECR_REPO_URL = sh(
+                            script: "terraform output -no-color -raw app_ecr_repository_url 2>/dev/null || echo ''",
                             returnStdout: true
                         ).trim()
                         
                         echo "Agent ECR URL: ${env.AGENT_ECR_REPO_URL}"
-                        echo "Webapp ECR URL: ${env.WEBAPP_ECR_REPO_URL}"
+                        echo "App ECR URL: ${env.APP_ECR_REPO_URL}"
                     } catch (Exception e) {
                         echo "⚠️ Could not extract ECR repository URLs from Terraform outputs. Will try to delete images using repository names."
                     }
                     
                     input message: """
                     ⚠️ Are you sure you want to destroy all resources including:
-                    • ECR images for agent and webapp repositories
+                    • ECR images for agent and app repositories
                     • AgentCore Runtime
                     • VPC, ELB, and ECS resources
                     This action will permanently delete all associated resources.
@@ -545,13 +545,13 @@ pipeline {
                         delete_repo_images "${params.agentName}"
                     fi
                     
-                    # Delete images from webapp repository
-                    if [ -n "${env.WEBAPP_ECR_REPO_URL}" ]; then
-                        WEBAPP_REPO_NAME=\$(extract_repo_name "${env.WEBAPP_ECR_REPO_URL}")
-                        delete_repo_images "\$WEBAPP_REPO_NAME"
+                    # Delete images from app repository
+                    if [ -n "${env.APP_ECR_REPO_URL}" ]; then
+                        APP_REPO_NAME=\$(extract_repo_name "${env.APP_ECR_REPO_URL}")
+                        delete_repo_images "\$APP_REPO_NAME"
                     else
-                        echo "⚠️ Webapp ECR repository URL not found. Trying default repository name..."
-                        delete_repo_images "${params.agentName}_webapp"
+                        echo "⚠️ App ECR repository URL not found. Trying default repository name..."
+                        delete_repo_images "${params.agentName}_app"
                     fi
                     
                     echo "🔧 Proceeding with Terraform destroy..."
@@ -572,7 +572,7 @@ pipeline {
             Agent Name: ${params.agentName}
             Agent Version: ${env.AGENT_VERSION}
             Agent ECR: ${env.AGENT_ECR_REPO_URL}
-            Frontend ECR: ${env.FRONTEND_ECR_REPO_URL}
+            App ECR: ${env.APP_ECR_REPO_URL}
             """
         }
         failure {
