@@ -4,8 +4,8 @@ pipeline {
     parameters {
         choice(
             name: 'deploymentType',
-            choices: ['NewDeployment', 'NewRelease'],
-            description: 'Deployment type: NewDeployment creates all resources, NewRelease only builds/pushes new images'
+            choices: ['NewDeployment', 'NewRelease', 'UpdateInfra'],
+            description: 'Deployment type: NewDeployment creates all resources with builds, NewRelease only builds/pushes new images with service steady state, UpdateInfra only updates infrastructure'
         )
         string(
             name: 'agentName', 
@@ -179,7 +179,7 @@ pipeline {
 
         stage('Code Scan') {
             when {
-                expression { return !params.destroy }
+                expression { return !params.destroy && params.deploymentType != 'UpdateInfra' }
             }
             steps {
                 script {
@@ -201,7 +201,7 @@ pipeline {
 
         stage('Build Agent Docker Image') {
             when {
-                expression { return !params.destroy }
+                expression { return !params.destroy && params.deploymentType != 'UpdateInfra' }
             }
             steps {
                 script {
@@ -233,7 +233,7 @@ pipeline {
 
         stage('Scan Agent Image') {
             when {
-                expression { return !params.destroy }
+                expression { return !params.destroy && params.deploymentType != 'UpdateInfra' }
             }
             steps {
                 echo "🔍 Scanning agent Docker image for vulnerabilities..."
@@ -253,7 +253,7 @@ pipeline {
 
         stage('Push Agent Docker Image') {
             when {
-                expression { return !params.destroy }
+                expression { return !params.destroy && params.deploymentType != 'UpdateInfra' }
             }
             steps {
                 echo "📤 Pushing agent Docker images to ECR..."
@@ -266,7 +266,7 @@ pipeline {
 
         stage('Build Webapp Docker Image') {
             when {
-                expression { return !params.destroy }
+                expression { return !params.destroy && params.deploymentType != 'UpdateInfra' }
             }
             steps {
                 script {
@@ -298,7 +298,7 @@ pipeline {
 
         stage('Scan Webapp Image') {
             when {
-                expression { return !params.destroy }
+                expression { return !params.destroy && params.deploymentType != 'UpdateInfra' }
             }
             steps {
                 echo "🔍 Scanning webapp Docker image for vulnerabilities..."
@@ -318,7 +318,7 @@ pipeline {
 
         stage('Push Webapp Docker Image') {
             when {
-                expression { return !params.destroy }
+                expression { return !params.destroy && params.deploymentType != 'UpdateInfra' }
             }
             steps {
                 echo "📤 Pushing webapp Docker images to ECR..."
