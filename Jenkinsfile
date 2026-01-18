@@ -489,6 +489,9 @@ pipeline {
                         echo "⚠️ Could not extract ECR repository URLs from Terraform outputs. Will try to delete images using repository names."
                     }
                     
+                    echo "📋 Running Terraform destroy plan..."
+                    sh "terraform plan -destroy -no-color -out=destroy.tfplan"
+                    
                     input message: """
                     ⚠️ Are you sure you want to destroy all resources including:
                     • ECR images for agent and app repositories
@@ -555,7 +558,7 @@ pipeline {
                     fi
                     
                     echo "🔧 Proceeding with Terraform destroy..."
-                    terraform destroy -no-color -auto-approve
+                    terraform apply -no-color destroy.tfplan
                     """
                 }
             }
