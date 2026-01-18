@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 BEDROCK_MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-sonnet-20240229-v1:0")
 BEDROCK_MODEL_REGION = os.getenv("BEDROCK_MODEL_REGION", "us-east-1")
+BEDROCK_MODEL_MAX_TOKENS = os.getenv("BEDROCK_MODEL_MAX_TOKENS", 8192)
 MEMORY_ID = os.getenv("AGENTCORE_LTM_MEMORY_ID")
 MEMORY_REGION = os.getenv("AGENTCORE_LTM_MEMORY_REGION", "us-east-1")
 SLIDING_WINDOW_SIZE = os.getenv("SLIDING_WINDOW_SIZE", 20)
@@ -31,6 +32,8 @@ STRANDS_AGENT_VERSION = os.getenv("STRANDS_AGENT_VERSION", "v1.0.0")
 logger.info(f"Using Bedrock Model ID: {BEDROCK_MODEL_ID} in region: {BEDROCK_MODEL_REGION}")
 
 def create_aws_assistant_agent(session_id: str = None, actor_id: str = None):
+    use_memory = bool(MEMORY_ID and session_id and actor_id)
+    
     logger.info(f"Creating AWS CloudOps Assistant agent (session_id={session_id}, actor_id={actor_id})")
     system_prompt = """You are an AWS CloudOps Assistant, a specialized AI agent designed to help users manage, monitor, and interact with AWS cloud infrastructure and services.
 
@@ -95,9 +98,9 @@ Be helpful, professional, and maintain strict focus on AWS cloud operations."""
     session_manager = None
     conversation_manager = None
     
-    if MEMORY_ID and session_id and actor_id:
+    if use_memory:
         try:
-            logger.info(f"Initializing AgentCore Memory with ID: {MEMORY_ID}")
+            logger.info(f"Initializing AgentCore Memory (Memory ID: {MEMORY_ID[:20]}..., Region: {MEMORY_REGION})")
             agentcore_memory_config = AgentCoreMemoryConfig(
                 memory_id=MEMORY_ID,
                 session_id=session_id,
@@ -117,22 +120,29 @@ Be helpful, professional, and maintain strict focus on AWS cloud operations."""
                     )
                 }
             )
+            logger.info("Creating AgentCore Memory session manager")
             session_manager = AgentCoreMemorySessionManager(
                 agentcore_memory_config=agentcore_memory_config,
                 region_name=MEMORY_REGION
             )
             logger.info("Memory session manager initialized successfully")
             
+            logger.info(f"Initializing conversation manager (window_size={SLIDING_WINDOW_SIZE})")
             conversation_manager = SlidingWindowConversationManager(window_size=SLIDING_WINDOW_SIZE)
-            logger.info("SlidingWindowConversationManager initialized.")
+            logger.info("SlidingWindowConversationManager initialized")
         except Exception as e:
             logger.error(f"Failed to initialize memory session manager: {e}")
             session_manager = None
             conversation_manager = None
+    else:
+        logger.info("Skipping memory initialization (no MEMORY_ID, session_id, or actor_id)")
+        session_manager = None
+        conversation_manager = None
 
     try:
+        logger.info(f"Creating Agent instance (Model: {BEDROCK_MODEL_ID}, Max Tokens: {BEDROCK_MODEL_MAX_TOKENS})")
         agent = Agent(
-            model=BedrockModel(model_id=BEDROCK_MODEL_ID, region=BEDROCK_MODEL_REGION),
+            model=BedrockModel(model_id=BEDROCK_MODEL_ID, region_name=BEDROCK_MODEL_REGION, max_tokens=BEDROCK_MODEL_MAX_TOKENS),
             system_prompt=system_prompt,
             tools=[use_aws, current_time],
             session_manager=session_manager,
@@ -165,10 +175,21 @@ default_agent = None
 async def startup_event():
     """Initialize default agent on startup"""
     global default_agent
-    logger.info("Starting up AWS CloudOps Assistant API server")
+    port = int(os.getenv("STRANDS_AGENT_PORT", 8080))
+    logger.info("=" * 60)
+    logger.info("[Step 1/3]: Starting AWS CloudOps Assistant API server")
+    logger.info(f"Port: {port}")
+    logger.info(f"Bedrock Model: {BEDROCK_MODEL_ID} (Region: {BEDROCK_MODEL_REGION})")
+    logger.info(f"Agent Version: {STRANDS_AGENT_VERSION}")
+    if MEMORY_ID:
+        logger.info(f"AgentCore Memory: {MEMORY_ID[:20]}... (Region: {MEMORY_REGION})")
+    else:
+        logger.info("AgentCore Memory: Not configured")
+    logger.info("=" * 60)
     try:
+        logger.info("Initializing default agent on startup")
         default_agent = create_aws_assistant_agent()
-        logger.info("Default agent initialized successfully on startup")
+        logger.info("[Step 2/3]: Default agent initialized successfully on startup")
     except Exception as e:
         logger.warning(f"Failed to initialize default agent on startup: {e}")
 
@@ -190,7 +211,10 @@ async def ping():
             health_status = "unhealthy"
             agent_initialized = False
             logger.error(f"Failed to create default agent via ping endpoint: {str(e)}")
+    else:
+        logger.debug("Default agent already initialized")
     
+    logger.info(f"Health check complete. Status: {health_status}, Agent initialized: {agent_initialized}")
     return {
         "status": health_status,
         "model_id": BEDROCK_MODEL_ID,
@@ -204,23 +228,28 @@ async def ping():
 async def invoke_agent(request: InvocationRequest):
     global default_agent
     
-    logger.info(f"Invocation request received: stream={request.stream}, prompt_length={len(request.prompt)}, session_id={request.session_id}")
+    logger.info(f"[Step 3/3]: Invocation request received: stream={request.stream}, prompt_length={len(request.prompt)}, session_id={request.session_id}")
     
     if request.session_id and request.actor_id and MEMORY_ID:
-        logger.info(f"Session ID: {request.session_id}, Actor ID: {request.actor_id}")
+        logger.info(f"Session ID: {request.session_id[:20]}..., Actor ID: {request.actor_id[:20]}...")
         logger.info("Creating session-specific agent with memory")
         current_agent = create_aws_assistant_agent(request.session_id, request.actor_id)
+        logger.info("Session-specific agent created")
     else:
         logger.info("Using default agent (no memory/session context)")
         if not default_agent:
-             default_agent = create_aws_assistant_agent()
+            logger.info("Default agent not initialized, creating now")
+            default_agent = create_aws_assistant_agent()
         current_agent = default_agent
+        logger.info("Default agent ready")
 
     # Handle streaming response
     if request.stream:
         logger.info("Processing streaming invocation")
         async def generate_stream():
             try:
+                logger.info("Starting agent stream_async")
+                chunk_count = 0
                 async for event in current_agent.stream_async(request.prompt):
                     chunk = None
 
@@ -270,14 +299,19 @@ async def invoke_agent(request: InvocationRequest):
                         chunk = event
                     
                     if chunk is not None:
+                        chunk_count += 1
+                        if chunk_count == 1:
+                            logger.info("First chunk received from agent stream")
                         yield f"data: {json.dumps({'chunk': chunk})}\n\n"
                 
+                logger.info(f"Stream processing complete. Total chunks: {chunk_count}")
                 yield f"data: {json.dumps({'done': True})}\n\n"
                 logger.info("Streaming invocation completed successfully")
             except Exception as e:
                 logger.error(f"Error during streaming invocation: {str(e)}")
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
         
+        logger.info("Returning streaming response")
         return StreamingResponse(
             generate_stream(),
             media_type="text/event-stream",
@@ -292,10 +326,12 @@ async def invoke_agent(request: InvocationRequest):
     else:
         logger.info("Processing non-streaming invocation")
         try:
+            logger.info("Invoking agent (non-streaming)")
             response = current_agent(request.prompt)
+            logger.info("Agent response received, extracting text")
             response_text = _extract_response_text(response)
-            logger.info(f"Non-streaming invocation completed, response_length={len(response_text)}")
-            
+            logger.info(f"Response text extracted. Length: {len(response_text)}")
+            logger.info("Non-streaming invocation completed successfully")
             return {
                 "response": response_text,
                 "status": "success"
@@ -320,9 +356,3 @@ def _extract_response_text(response):
             return str(content)
     else:
         return str(response)
-
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.getenv("PORT", 8080))
-    logger.info(f"Starting AWS CloudOps Assistant API server on port {port}")
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
