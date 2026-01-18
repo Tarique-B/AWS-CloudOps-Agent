@@ -88,7 +88,7 @@ container_port                 = 80
 # ECS configuration
 runtime_platform_operating_system_family = "LINUX"
 runtime_platform_cpu_architecture        = "ARM64"
-container_image                          = "public.ecr.aws/nginx/nginx:latest"
+container_image                          = ""
 launch_type                              = "FARGATE"
 desired_count                            = 1
 
@@ -99,6 +99,5 @@ ecs_task_memory      = "2048"
 ecs_create_task_role = true
 
 ecs_task_role_managed_policy_arns = [
-  "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
   "arn:aws:iam::aws:policy/BedrockAgentCoreFullAccess"
 ]

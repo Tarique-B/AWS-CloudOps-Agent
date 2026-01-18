@@ -94,6 +94,7 @@ module "ecs" {
   task_memory   = var.ecs_task_memory
 
   force_new_deployment = var.force_new_deployment
+  wait_for_steady_state = var.wait_for_steady_state
 
   target_group_arn      = module.alb.target_group_arn
   alb_security_group_id = module.alb.security_group_id

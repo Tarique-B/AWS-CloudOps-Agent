@@ -207,6 +207,11 @@ variable "force_new_deployment" {
   default     = false
 }
 
+variable "wait_for_steady_state" {
+  description = "Whether to wait for steady state"
+  type        = bool
+}
+
 variable "desired_count" {
   description = "Desired number of ECS tasks"
   type        = number
