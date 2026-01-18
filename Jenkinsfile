@@ -4,8 +4,8 @@ pipeline {
     parameters {
         choice(
             name: 'deploymentType',
-            choices: ['NewDeployment', 'NewRelease', 'UpdateInfra'],
-            description: 'Deployment type: NewDeployment creates all resources with builds, NewRelease only builds/pushes new images with service steady state, UpdateInfra only updates infrastructure'
+            choices: ['NewDeployment', 'FullRelease', 'AgentRelease', 'AppRelease', 'UpdateInfra',],
+            description: 'Deployment type: NewDeployment creates all resources with builds, FullRelease builds/pushes all images with service steady state, AgentRelease builds/pushes agent image only, AppRelease builds/pushes webapp image only, UpdateInfra only updates infrastructure'
         )
         string(
             name: 'agentName', 
@@ -201,7 +201,7 @@ pipeline {
 
         stage('Build Agent Docker Image') {
             when {
-                expression { return !params.destroy && params.deploymentType != 'UpdateInfra' }
+                expression { return !params.destroy && params.deploymentType != 'UpdateInfra' && params.deploymentType != 'AppRelease' }
             }
             steps {
                 script {
@@ -233,7 +233,7 @@ pipeline {
 
         stage('Scan Agent Image') {
             when {
-                expression { return !params.destroy && params.deploymentType != 'UpdateInfra' }
+                expression { return !params.destroy && params.deploymentType != 'UpdateInfra' && params.deploymentType != 'AppRelease' }
             }
             steps {
                 echo "🔍 Scanning agent Docker image for vulnerabilities..."
@@ -253,7 +253,7 @@ pipeline {
 
         stage('Push Agent Docker Image') {
             when {
-                expression { return !params.destroy && params.deploymentType != 'UpdateInfra' }
+                expression { return !params.destroy && params.deploymentType != 'UpdateInfra' && params.deploymentType != 'AppRelease' }
             }
             steps {
                 echo "📤 Pushing agent Docker images to ECR..."
@@ -266,7 +266,7 @@ pipeline {
 
         stage('Build Webapp Docker Image') {
             when {
-                expression { return !params.destroy && params.deploymentType != 'UpdateInfra' }
+                expression { return !params.destroy && params.deploymentType != 'UpdateInfra' && params.deploymentType != 'AgentRelease' }
             }
             steps {
                 script {
@@ -298,7 +298,7 @@ pipeline {
 
         stage('Scan Webapp Image') {
             when {
-                expression { return !params.destroy && params.deploymentType != 'UpdateInfra' }
+                expression { return !params.destroy && params.deploymentType != 'UpdateInfra' && params.deploymentType != 'AgentRelease' }
             }
             steps {
                 echo "🔍 Scanning webapp Docker image for vulnerabilities..."
@@ -318,7 +318,7 @@ pipeline {
 
         stage('Push Webapp Docker Image') {
             when {
-                expression { return !params.destroy && params.deploymentType != 'UpdateInfra' }
+                expression { return !params.destroy && params.deploymentType != 'UpdateInfra' && params.deploymentType != 'AgentRelease' }
             }
             steps {
                 echo "📤 Pushing webapp Docker images to ECR..."
@@ -401,10 +401,10 @@ pipeline {
                 script {
                     echo "🔧 Deploying Webapp Resources (VPC, ALB, ECS)..."
                     
-                    if (params.deploymentType == 'NewRelease') {
+                    if (params.deploymentType == 'FullRelease' || params.deploymentType == 'AgentRelease' || params.deploymentType == 'AppRelease') {
                         env.TF_VAR_force_new_deployment = "true"
                         env.TF_VAR_wait_for_steady_state = "true"
-                        echo "ℹ️ NewRelease detected. Setting force_new_deployment=true and wait_for_steady_state=true"
+                        echo "ℹ️ ${params.deploymentType} detected. Setting force_new_deployment=true and wait_for_steady_state=true"
                     }
                     
                     echo "🔍 Running Terraform plan for Webapp Resources (VPC, ALB, ECS)..."
