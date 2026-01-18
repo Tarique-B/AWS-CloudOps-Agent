@@ -125,13 +125,38 @@ pipeline {
                     if (ecrPlanExitCode == 0) {
                         echo "✅ No changes detected for ECR repositories. Skipping apply."
                     } else if (ecrPlanExitCode == 2) {
-                        echo "⚠️ Changes detected for ECR repositories. Applying..."
+                        echo "⚠️ Changes detected for ECR repositories."
+                        
+                        slackSend color: "#FFD700", message: """
+                        🛑 *Approval Required: ECR Repository Creation*
+                        Job: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}console|Review>)
+                        Environment: ${params.agentEnv}
+                        Agent Name: ${params.agentName}
+                        """
+                        
+                        input message: "⚡ Approve ECR repository creation?",
+                            ok: "✅ Deploy",
+                            submitter: "${env.APPROVER}"
+                        
+                        echo "Applying Terraform plan for ECR repositories..."
                         sh "terraform apply -no-color -auto-approve ecr-plan.out"
                     } else if (ecrPlanExitCode == 1) {
                         echo "❌ Terraform plan failed. Check logs above."
                         error "Terraform plan failed with exit code ${ecrPlanExitCode}"
                     } else {
                         echo "ℹ️ ECR repositories may not exist. Creating..."
+                        
+                        slackSend color: "#FFD700", message: """
+                        🛑 *Approval Required: ECR Repository Creation*
+                        Job: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}console|Review>)
+                        Environment: ${params.agentEnv}
+                        Agent Name: ${params.agentName}
+                        """
+                        
+                        input message: "⚡ Approve ECR repository creation?",
+                            ok: "✅ Deploy",
+                            submitter: "${env.APPROVER}"
+                        
                         sh "terraform apply -no-color -target=module.ecr -auto-approve"
                     }
                     
@@ -318,26 +343,50 @@ pipeline {
                     echo "AWS region: ${env.TF_VAR_region}"
                     
                     echo "🔍 Running Terraform plan for AgentCore Runtime and Memory..."
-                    sh """
-                    terraform plan -no-color -target=module.agentcore_memory -target=module.agentcore_runtime -out=agentcore-plan.out
-                    """
+                    def agentcorePlanExitCode = sh(
+                        script: "terraform plan -no-color -target=module.agentcore_memory -target=module.agentcore_runtime -detailed-exitcode -out=agentcore-plan.out",
+                        returnStatus: true
+                    )
                     
-                    slackSend color: "#FFD700", message: """
-                    🛑 *Approval Required: AgentCore Runtime and Memory Deployment*
-                    Job: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}console|Review>)
-                    Environment: ${params.agentEnv}
-                    Agent Name: ${params.agentName}
-                    Agent Image: ${env.AGENT_ECR_REPO_URL}:${AGENT_VERSION}
-                    """
-                    
-                    input message: "⚡ Approve AgentCore Runtime and Memory deployment?",
-                        ok: "✅ Deploy",
-                        submitter: "${env.APPROVER}"
-                    
-                    echo "Applying Terraform plan for AgentCore Runtime and Memory..."
-                    sh """
-                    terraform apply -no-color -auto-approve agentcore-plan.out
-                    """
+                    if (agentcorePlanExitCode == 0) {
+                        echo "✅ No changes detected for AgentCore Runtime and Memory. Skipping apply."
+                    } else if (agentcorePlanExitCode == 2) {
+                        echo "⚠️ Changes detected for AgentCore Runtime and Memory."
+                        
+                        slackSend color: "#FFD700", message: """
+                        🛑 *Approval Required: AgentCore Runtime and Memory Deployment*
+                        Job: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}console|Review>)
+                        Environment: ${params.agentEnv}
+                        Agent Name: ${params.agentName}
+                        Agent Image: ${env.AGENT_ECR_REPO_URL}:${AGENT_VERSION}
+                        """
+                        
+                        input message: "⚡ Approve AgentCore Runtime and Memory deployment?",
+                            ok: "✅ Deploy",
+                            submitter: "${env.APPROVER}"
+                        
+                        echo "Applying Terraform plan for AgentCore Runtime and Memory..."
+                        sh "terraform apply -no-color -auto-approve agentcore-plan.out"
+                    } else if (agentcorePlanExitCode == 1) {
+                        echo "❌ Terraform plan failed. Check logs above."
+                        error "Terraform plan failed with exit code ${agentcorePlanExitCode}"
+                    } else {
+                        echo "⚠️ Unexpected exit code: ${agentcorePlanExitCode}. Proceeding with approval request."
+                        
+                        slackSend color: "#FFD700", message: """
+                        🛑 *Approval Required: AgentCore Runtime and Memory Deployment*
+                        Job: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}console|Review>)
+                        Environment: ${params.agentEnv}
+                        Agent Name: ${params.agentName}
+                        Agent Image: ${env.AGENT_ECR_REPO_URL}:${AGENT_VERSION}
+                        """
+                        
+                        input message: "⚡ Approve AgentCore Runtime and Memory deployment?",
+                            ok: "✅ Deploy",
+                            submitter: "${env.APPROVER}"
+                        
+                        sh "terraform apply -no-color -auto-approve agentcore-plan.out"
+                    }
                     
                     echo "✅ AgentCore Runtime and Memory deployment completed"
                 }
@@ -358,14 +407,50 @@ pipeline {
                     }
                     
                     echo "🔍 Running Terraform plan for Webapp Resources (VPC, ALB, ECS)..."
-                    sh """
-                    terraform plan -no-color -target=module.vpc -target=module.alb -target=module.ecs -out=webapp-plan.out
-                    """
+                    def webappPlanExitCode = sh(
+                        script: "terraform plan -no-color -target=module.vpc -target=module.alb -target=module.ecs -detailed-exitcode -out=webapp-plan.out",
+                        returnStatus: true
+                    )
                     
-                    echo "Applying Terraform plan for Webapp Resources..."
-                    sh """
-                    terraform apply -no-color -auto-approve webapp-plan.out
-                    """
+                    if (webappPlanExitCode == 0) {
+                        echo "✅ No changes detected for Webapp Resources. Skipping apply."
+                    } else if (webappPlanExitCode == 2) {
+                        echo "⚠️ Changes detected for Webapp Resources."
+                        
+                        slackSend color: "#FFD700", message: """
+                        🛑 *Approval Required: Webapp Resources Deployment (VPC, ALB, ECS)*
+                        Job: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}console|Review>)
+                        Environment: ${params.agentEnv}
+                        Agent Name: ${params.agentName}
+                        Deployment Type: ${params.deploymentType}
+                        """
+                        
+                        input message: "⚡ Approve Webapp Resources (VPC, ALB, ECS) deployment?",
+                            ok: "✅ Deploy",
+                            submitter: "${env.APPROVER}"
+                        
+                        echo "Applying Terraform plan for Webapp Resources..."
+                        sh "terraform apply -no-color -auto-approve webapp-plan.out"
+                    } else if (webappPlanExitCode == 1) {
+                        echo "❌ Terraform plan failed. Check logs above."
+                        error "Terraform plan failed with exit code ${webappPlanExitCode}"
+                    } else {
+                        echo "⚠️ Unexpected exit code: ${webappPlanExitCode}. Proceeding with approval request."
+                        
+                        slackSend color: "#FFD700", message: """
+                        🛑 *Approval Required: Webapp Resources Deployment (VPC, ALB, ECS)*
+                        Job: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}console|Review>)
+                        Environment: ${params.agentEnv}
+                        Agent Name: ${params.agentName}
+                        Deployment Type: ${params.deploymentType}
+                        """
+                        
+                        input message: "⚡ Approve Webapp Resources (VPC, ALB, ECS) deployment?",
+                            ok: "✅ Deploy",
+                            submitter: "${env.APPROVER}"
+                        
+                        sh "terraform apply -no-color -auto-approve webapp-plan.out"
+                    }
                     
                     echo "✅ Webapp Resources deployment completed"
                 }
@@ -379,42 +464,99 @@ pipeline {
                 expression { return params.destroy }
             }
             steps {
-                echo "⚠️ Destroy parameter is checked. Running Terraform destroy..."
-                
-                input message: """
-                ⚠️ Are you sure you want to destroy all resources including:
-                • ECR images for ${AGENT_NAME} and ${AGENT_NAME}_frontend
-                • AgentCore Runtime
-                • VPC, ELB, and ECS resources
-                This action will permanently delete all associated resources.
-                """,
-                ok: "✅ Proceed",
-                submitter: "${env.APPROVER}"
-                
-                sh """
-                echo "Deleting all ECR images for repositories: CloudOps_Agent and CloudOps_Agent_Webapp"
-                
-                for REPO in CloudOps_Agent CloudOps_Agent_Webapp; do
-                    echo "Checking repository: \$REPO"
-                    if aws ecr describe-repositories --repository-names \$REPO --region ${params.awsRegion} 2>/dev/null; then
-                        echo "Deleting all images in repository: \$REPO"
-                        IMAGES=\$(aws ecr list-images --repository-name \$REPO --query 'imageIds[*]' --output json --region ${params.awsRegion})
+                script {
+                    echo "⚠️ Destroy parameter is checked. Running Terraform destroy..."
+                    
+                    echo "🔧 Initializing Terraform to get ECR repository information..."
+                    sh "terraform init -no-color"
+                    
+                    echo "📦 Extracting ECR repository URLs from Terraform outputs..."
+                    try {
+                        env.AGENT_ECR_REPO_URL = sh(
+                            script: "terraform output -no-color -raw agent_ecr_repository_url 2>/dev/null || echo ''",
+                            returnStdout: true
+                        ).trim()
                         
-                        if [ "\$IMAGES" != "[]" ] && [ -n "\$IMAGES" ]; then
-                            aws ecr batch-delete-image --repository-name \$REPO --image-ids "\$IMAGES" --region ${params.awsRegion}
-                            echo "✅ Deleted all images in \$REPO"
-                        else
-                            echo "ℹ No images found in \$REPO"
+                        env.WEBAPP_ECR_REPO_URL = sh(
+                            script: "terraform output -no-color -raw webapp_ecr_repository_url 2>/dev/null || echo ''",
+                            returnStdout: true
+                        ).trim()
+                        
+                        echo "Agent ECR URL: ${env.AGENT_ECR_REPO_URL}"
+                        echo "Webapp ECR URL: ${env.WEBAPP_ECR_REPO_URL}"
+                    } catch (Exception e) {
+                        echo "⚠️ Could not extract ECR repository URLs from Terraform outputs. Will try to delete images using repository names."
+                    }
+                    
+                    input message: """
+                    ⚠️ Are you sure you want to destroy all resources including:
+                    • ECR images for agent and webapp repositories
+                    • AgentCore Runtime
+                    • VPC, ELB, and ECS resources
+                    This action will permanently delete all associated resources.
+                    """,
+                    ok: "✅ Proceed",
+                    submitter: "${env.APPROVER}"
+                    
+                    sh """
+                    echo "🗑️ Deleting ECR images before destroying infrastructure..."
+                    
+                    # Function to extract repository name from ECR URL
+                    extract_repo_name() {
+                        local url=\$1
+                        if [ -n "\$url" ]; then
+                            # Extract repo name from URL (format: <account>.dkr.ecr.<region>.amazonaws.com/<repo-name>)
+                            echo "\$url" | sed 's|.*/||'
                         fi
+                    }
+                    
+                    # Function to delete all images from a repository
+                    delete_repo_images() {
+                        local repo_name=\$1
+                        if [ -z "\$repo_name" ]; then
+                            echo "ℹ Skipping empty repository name"
+                            return
+                        fi
+                        
+                        echo "Checking repository: \$repo_name"
+                        if aws ecr describe-repositories --repository-names "\$repo_name" --region ${params.awsRegion} 2>/dev/null; then
+                            echo "📋 Listing all images in repository: \$repo_name"
+                            IMAGES=\$(aws ecr list-images --repository-name "\$repo_name" --query 'imageIds[*]' --output json --region ${params.awsRegion} 2>/dev/null || echo "[]")
+                            
+                            if [ "\$IMAGES" != "[]" ] && [ -n "\$IMAGES" ] && [ "\$IMAGES" != "null" ]; then
+                                echo "🗑️ Deleting all images in repository: \$repo_name"
+                                aws ecr batch-delete-image --repository-name "\$repo_name" --image-ids "\$IMAGES" --region ${params.awsRegion}
+                                echo "✅ Deleted all images in \$repo_name"
+                            else
+                                echo "ℹ No images found in \$repo_name"
+                            fi
+                        else
+                            echo "ℹ Repository \$repo_name does not exist or cannot be accessed"
+                        fi
+                    }
+                    
+                    # Delete images from agent repository
+                    if [ -n "${env.AGENT_ECR_REPO_URL}" ]; then
+                        AGENT_REPO_NAME=\$(extract_repo_name "${env.AGENT_ECR_REPO_URL}")
+                        delete_repo_images "\$AGENT_REPO_NAME"
                     else
-                        echo "ℹ Repository \$REPO does not exist"
+                        echo "⚠️ Agent ECR repository URL not found. Trying default repository name..."
+                        delete_repo_images "${params.agentName}"
                     fi
-                done
-                
-                echo "🔧 Proceeding with Terraform destroy..."
-                terraform init -no-color
-                terraform destroy -no-color -auto-approve
-                """
+                    
+                    # Delete images from webapp repository
+                    if [ -n "${env.WEBAPP_ECR_REPO_URL}" ]; then
+                        WEBAPP_REPO_NAME=\$(extract_repo_name "${env.WEBAPP_ECR_REPO_URL}")
+                        delete_repo_images "\$WEBAPP_REPO_NAME"
+                    else
+                        echo "⚠️ Webapp ECR repository URL not found. Trying default repository name..."
+                        delete_repo_images "${params.agentName}_webapp"
+                    fi
+                    
+                    echo "🔧 Proceeding with Terraform destroy..."
+                    terraform destroy -no-color -auto-approve
+                    """
+                }
             }
         }
     }
