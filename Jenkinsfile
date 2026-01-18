@@ -76,7 +76,7 @@ pipeline {
             steps {
                 echo "🔍 Initializing and validating Terraform configuration..."
                 sh """
-                terraform init -no-color
+                terraform init -no-color -upgrade
                 terraform validate -no-color
                 """
             }
