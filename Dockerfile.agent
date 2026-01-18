@@ -12,19 +12,18 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
 
 # Copy application files
 COPY agent.py .
 COPY models.py .
 
 # Expose port
-EXPOSE 8888
+EXPOSE 8080
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV LOG_LEVEL=INFO
 
-# Run the FastAPI agent application
-CMD ["python", "agent.py"]
+CMD ["uvicorn", "agent:app", "--host", "0.0.0.0", "--port", "8080", "--log-level", "info"]
 

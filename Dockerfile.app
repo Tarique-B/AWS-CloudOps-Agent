@@ -18,12 +18,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py .
 
 # Expose Streamlit port
-EXPOSE 8501
+EXPOSE 80
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV LOG_LEVEL=INFO
 
 # Run the Streamlit chatbot application
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "app.py", "--server.port=80", "--server.address=0.0.0.0"]
 

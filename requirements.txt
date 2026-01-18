@@ -1,7 +1,8 @@
-streamlit>=1.28.0
-strands-agents>=1.0.0
-strands-agents-tools>=1.0.0
-fastapi>=0.104.0
-uvicorn>=0.24.0
-requests>=2.31.0
-pydantic>=2.0.0
+strands-agents==1.12.0
+strands-agents-tools==0.2.11
+bedrock-agentcore==1.0.3
+streamlit==1.51.0
+fastapi
+uvicorn
+requests
+pydantic
