@@ -403,7 +403,8 @@ pipeline {
                     
                     if (params.deploymentType == 'NewRelease') {
                         env.TF_VAR_force_new_deployment = "true"
-                        echo "ℹ️ NewRelease detected. Setting force_new_deployment=true"
+                        env.TF_VAR_wait_for_steady_state = "true"
+                        echo "ℹ️ NewRelease detected. Setting force_new_deployment=true and wait_for_steady_state=true"
                     }
                     
                     echo "🔍 Running Terraform plan for Webapp Resources (VPC, ALB, ECS)..."
