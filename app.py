@@ -1343,5 +1343,7 @@ with st.sidebar:
             margin-top: 1rem;
         ">
             {agent_version_display} • Connected to {runtime_display}
+            <br>
+            <span style="font-size: 0.65rem; opacity: 0.8;">Powered by Strands Agents</span>
         </div>
     """, unsafe_allow_html=True)
