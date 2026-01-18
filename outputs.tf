@@ -4,7 +4,7 @@ output "agent_ecr_repository_url" {
   value       = length(module.ecr) > 0 ? module.ecr[0].repository_url : null
 }
 
-output "webapp_ecr_repository_url" {
+output "app_ecr_repository_url" {
   description = "URL of the webapp ECR repository"
   value       = length(module.ecr) > 1 ? module.ecr[1].repository_url : null
 }
