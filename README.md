@@ -1,4 +1,4 @@
-# Agentic ClouOps with AWS CloudOps Assistant | AI-Powered AWS Operations with Strands Agent Framework
+# AWS CloudOps Agent
 
 [![AWS](https://img.shields.io/badge/AWS-Bedrock-orange)](https://aws.amazon.com/bedrock/)
 [![AgentCore](https://img.shields.io/badge/AWS-AgentCore-blue)](https://aws.amazon.com/bedrock/agentcore/)
